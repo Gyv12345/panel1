@@ -1,10 +1,13 @@
 [package]
-name = "panel-cli"
+name = "panel1"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Panel1 - Linux Server Management Panel with TUI"
 
 [[bin]]
-name = "panel1-cli"
+name = "panel1"
 path = "src/main.rs"
 
 [dependencies]
@@ -13,6 +16,10 @@ anyhow = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+serde_json = { workspace = true }
 
 panel-core = { path = "../panel-core" }
 panel-docker = { path = "../panel-docker" }
+panel-service = { path = "../panel-service" }
+panel-ai = { path = "../panel-ai" }
+panel-tui = { path = "../panel-tui" }

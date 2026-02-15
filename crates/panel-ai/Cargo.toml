@@ -1,0 +1,33 @@
+[package]
+name = "panel-ai"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+panel-core = { path = "../panel-core" }
+
+# 异步运行时
+tokio = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+
+# 序列化
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# HTTP 客户端
+reqwest = { workspace = true }
+
+# AI 相关
+async-openai = { workspace = true }
+
+# 工具库
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"

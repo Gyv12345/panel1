@@ -1,0 +1,31 @@
+[package]
+name = "panel-tui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+panel-core = { path = "../panel-core" }
+panel-ai = { path = "../panel-ai" }
+panel-service = { path = "../panel-service" }
+
+# 异步运行时
+tokio = { workspace = true }
+
+# TUI 框架
+ratatui = { workspace = true }
+crossterm = { workspace = true }
+
+# 序列化
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# 工具库
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"

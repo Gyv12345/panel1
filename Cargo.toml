@@ -3,8 +3,10 @@ resolver = "2"
 members = [
     "crates/panel-core",
     "crates/panel-docker",
-    "crates/panel-web",
     "crates/panel-cli",
+    "crates/panel-service",
+    "crates/panel-ai",
+    "crates/panel-tui",
 ]
 
 [workspace.package]
@@ -56,5 +58,16 @@ futures = "0.3"
 # 验证
 validator = { version = "0.18", features = ["derive"] }
 
+# TUI
+ratatui = "0.28"
+crossterm = "0.28"
+
+# HTTP 客户端
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+
+# AI 相关
+async-openai = "0.27"
+
 # 其他
 lazy_static = "1.4"
+dirs = "5"
