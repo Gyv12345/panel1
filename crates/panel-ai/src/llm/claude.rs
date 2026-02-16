@@ -27,8 +27,8 @@ impl ClaudeProvider {
         let gateway_url = std::env::var("CLAUDE_GATEWAY_URL").ok();
         let gateway_token = std::env::var("CLAUDE_GATEWAY_TOKEN").ok();
         let api_key = std::env::var("ANTHROPIC_API_KEY").ok();
-        let model = std::env::var("CLAUDE_MODEL")
-            .unwrap_or_else(|_| "claude-sonnet-4-5".to_string());
+        let model =
+            std::env::var("CLAUDE_MODEL").unwrap_or_else(|_| "claude-sonnet-4-5".to_string());
 
         // 优先使用网关 token，否则使用 API key
         let effective_token = gateway_token.or(api_key);
@@ -54,7 +54,9 @@ impl ClaudeProvider {
                     Ok(ServiceTarget { endpoint, auth, model })
                 },
             );
-            Client::builder().with_service_target_resolver(target_resolver).build()
+            Client::builder()
+                .with_service_target_resolver(target_resolver)
+                .build()
         } else {
             // 直连模式：使用默认配置
             Client::default()
@@ -77,7 +79,11 @@ impl ClaudeProvider {
     }
 
     /// 创建支持自定义网关的 Provider
-    pub fn with_gateway(base_url: impl Into<String>, auth_token: impl Into<String>, model: impl Into<String>) -> Self {
+    pub fn with_gateway(
+        base_url: impl Into<String>,
+        auth_token: impl Into<String>,
+        model: impl Into<String>,
+    ) -> Self {
         std::env::set_var("CLAUDE_GATEWAY_URL", base_url.into());
         std::env::set_var("CLAUDE_GATEWAY_TOKEN", auth_token.into());
         std::env::set_var("CLAUDE_MODEL", model.into());
@@ -103,19 +109,24 @@ impl Default for ClaudeProvider {
 #[async_trait]
 impl LlmProvider for ClaudeProvider {
     async fn chat(&self, messages: Vec<LlmMessage>) -> Result<LlmResponse> {
-        let genai_messages: Vec<ChatMessage> = messages.iter().map(Self::to_genai_message).collect();
+        let genai_messages: Vec<ChatMessage> =
+            messages.iter().map(Self::to_genai_message).collect();
         let chat_req = ChatRequest::new(genai_messages);
 
         let chat_options = ChatOptions::default()
             .with_max_tokens(self.config.max_tokens.unwrap_or(4096))
             .with_temperature(self.config.temperature.unwrap_or(0.7) as f64);
 
-        let chat_res = self.client
+        let chat_res = self
+            .client
             .exec_chat(&self.config.model, chat_req, Some(&chat_options))
             .await?;
 
         // 获取响应内容
-        let content = chat_res.content_text_as_str().unwrap_or_default().to_string();
+        let content = chat_res
+            .content_text_as_str()
+            .unwrap_or_default()
+            .to_string();
 
         // 获取 token 使用情况
         let tokens_used = chat_res.usage.completion_tokens.map(|t| t as u32);

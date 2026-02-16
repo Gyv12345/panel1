@@ -1,14 +1,16 @@
 //! 安装向导组件
+//!
+//! 使用 Catppuccin Mocha 主题的现代化安装向导
 
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
-    layout::Rect,
-    style::{Color, Style},
+    layout::{Constraint, Direction, Layout, Rect},
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
 };
 
+use crate::theme::Theme;
 use panel_service::TemplateRegistry;
 
 /// 向导步骤
@@ -208,21 +210,84 @@ impl InstallWizard {
 
     /// 绘制向导
     pub fn draw(&self, f: &mut Frame, area: Rect) {
+        // 绘制进度条
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3), // 进度指示器
+                Constraint::Min(0),    // 主内容
+            ])
+            .split(area);
+
+        // 绘制步骤进度
+        self.draw_step_progress(f, chunks[0]);
+
+        // 根据当前步骤绘制内容
         match self.current_step {
-            WizardStep::SelectService => self.draw_service_selection(f, area),
-            WizardStep::SelectVersion => self.draw_version_selection(f, area),
-            WizardStep::SelectMode => self.draw_mode_selection(f, area),
-            WizardStep::Configure => self.draw_configuration(f, area),
-            WizardStep::Confirm => self.draw_confirmation(f, area),
-            WizardStep::Installing => self.draw_installing(f, area),
-            WizardStep::Done => self.draw_done(f, area),
+            WizardStep::SelectService => self.draw_service_selection(f, chunks[1]),
+            WizardStep::SelectVersion => self.draw_version_selection(f, chunks[1]),
+            WizardStep::SelectMode => self.draw_mode_selection(f, chunks[1]),
+            WizardStep::Configure => self.draw_configuration(f, chunks[1]),
+            WizardStep::Confirm => self.draw_confirmation(f, chunks[1]),
+            WizardStep::Installing => self.draw_installing(f, chunks[1]),
+            WizardStep::Done => self.draw_done(f, chunks[1]),
+        }
+    }
+
+    fn draw_step_progress(&self, f: &mut Frame, area: Rect) {
+        let steps = ["选择服务", "选择版本", "安装模式", "配置", "确认"];
+        let current_step_index = match self.current_step {
+            WizardStep::SelectService => 0,
+            WizardStep::SelectVersion => 1,
+            WizardStep::SelectMode => 2,
+            WizardStep::Configure => 3,
+            WizardStep::Confirm | WizardStep::Installing | WizardStep::Done => 4,
+        };
+
+        let constraints: Vec<Constraint> =
+            steps.iter().map(|_| Constraint::Percentage(20)).collect();
+
+        let chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(constraints)
+            .split(area);
+
+        for (i, (step, chunk)) in steps.iter().zip(chunks.iter()).enumerate() {
+            let style = if i < current_step_index {
+                Theme::success()
+            } else if i == current_step_index {
+                Theme::accent()
+            } else {
+                Theme::subtext()
+            };
+
+            let prefix = if i < current_step_index {
+                "✓"
+            } else if i == current_step_index {
+                "●"
+            } else {
+                "○"
+            };
+
+            let text = format!(" {} {} ", prefix, step);
+            let paragraph = Paragraph::new(text)
+                .style(style)
+                .alignment(ratatui::layout::Alignment::Center);
+
+            let block = Block::default()
+                .borders(Borders::BOTTOM)
+                .border_style(style);
+            f.render_widget(paragraph, block.inner(*chunk));
+            f.render_widget(block, *chunk);
         }
     }
 
     fn draw_service_selection(&self, f: &mut Frame, area: Rect) {
         let block = Block::default()
-            .title(" 步骤 1/5: 选择要安装的服务 ")
-            .borders(Borders::ALL);
+            .title(" 选择要安装的服务 ")
+            .title_style(Theme::card_title())
+            .borders(Borders::ALL)
+            .border_style(Theme::border());
 
         let templates = self.templates.list();
         let items: Vec<ListItem> = templates
@@ -230,9 +295,9 @@ impl InstallWizard {
             .enumerate()
             .map(|(i, t)| {
                 let style = if i == self.list_index {
-                    Style::default().fg(Color::Yellow)
+                    Theme::selected_highlight()
                 } else {
-                    Style::default()
+                    Theme::text()
                 };
                 ListItem::new(format!(" {} - {}", t.name, t.description)).style(style)
             })
@@ -245,8 +310,10 @@ impl InstallWizard {
     fn draw_version_selection(&self, f: &mut Frame, area: Rect) {
         let service_name = self.selected_service.as_deref().unwrap_or("unknown");
         let block = Block::default()
-            .title(format!(" 步骤 2/5: 选择 {} 版本 ", service_name))
-            .borders(Borders::ALL);
+            .title(format!(" 选择 {} 版本 ", service_name))
+            .title_style(Theme::card_title())
+            .borders(Borders::ALL)
+            .border_style(Theme::border());
 
         if let Some(template) = self.templates.get(service_name) {
             let items: Vec<ListItem> = template
@@ -255,26 +322,30 @@ impl InstallWizard {
                 .enumerate()
                 .map(|(i, v)| {
                     let style = if i == self.list_index {
-                        Style::default().fg(Color::Yellow)
+                        Theme::selected_highlight()
                     } else {
-                        Style::default()
+                        Theme::text()
                     };
-                    ListItem::new(format!(" {}", v)).style(style)
+                    ListItem::new(format!(" {} ", v)).style(style)
                 })
                 .collect();
 
             let list = List::new(items).block(block);
             f.render_widget(list, area);
         } else {
-            let paragraph = Paragraph::new("未找到服务模板").block(block);
+            let paragraph = Paragraph::new(" 未找到服务模板 ")
+                .style(Theme::error())
+                .block(block);
             f.render_widget(paragraph, area);
         }
     }
 
     fn draw_mode_selection(&self, f: &mut Frame, area: Rect) {
         let block = Block::default()
-            .title(" 步骤 3/5: 选择安装模式 ")
-            .borders(Borders::ALL);
+            .title(" 选择安装模式 ")
+            .title_style(Theme::card_title())
+            .borders(Borders::ALL)
+            .border_style(Theme::border());
 
         let modes = [
             ("Systemd", "使用系统包管理器安装，由 systemd 管理"),
@@ -287,9 +358,9 @@ impl InstallWizard {
             .enumerate()
             .map(|(i, (name, desc))| {
                 let style = if i == self.list_index {
-                    Style::default().fg(Color::Yellow)
+                    Theme::selected_highlight()
                 } else {
-                    Style::default()
+                    Theme::text()
                 };
                 ListItem::new(format!(" {} - {}", name, desc)).style(style)
             })
@@ -301,8 +372,10 @@ impl InstallWizard {
 
     fn draw_configuration(&self, f: &mut Frame, area: Rect) {
         let block = Block::default()
-            .title(" 步骤 4/5: 配置服务 ")
-            .borders(Borders::ALL);
+            .title(" 配置服务 ")
+            .title_style(Theme::card_title())
+            .borders(Borders::ALL)
+            .border_style(Theme::border());
 
         let modes = ["Systemd", "Panel1", "Docker"];
         let mode_name = modes.get(self.selected_mode).unwrap_or(&"Unknown");
@@ -312,27 +385,25 @@ impl InstallWizard {
  版本: {}
  模式: {}
 
- 端口号: {}
+ 端口号: {}_
 
  (输入数字修改端口号，按 Enter 继续)"#,
             self.selected_service.as_deref().unwrap_or("unknown"),
             self.selected_version.as_deref().unwrap_or("latest"),
             mode_name,
-            if self.config_port.is_empty() {
-                "_"
-            } else {
-                &self.config_port
-            }
+            self.config_port
         );
 
-        let paragraph = Paragraph::new(text).block(block);
+        let paragraph = Paragraph::new(text).style(Theme::text()).block(block);
         f.render_widget(paragraph, area);
     }
 
     fn draw_confirmation(&self, f: &mut Frame, area: Rect) {
         let block = Block::default()
-            .title(" 步骤 5/5: 确认安装 ")
-            .borders(Borders::ALL);
+            .title(" 确认安装 ")
+            .title_style(Theme::card_title())
+            .borders(Borders::ALL)
+            .border_style(Theme::border());
 
         let modes = ["Systemd", "Panel1", "Docker"];
         let mode_name = modes.get(self.selected_mode).unwrap_or(&"Unknown");
@@ -353,32 +424,36 @@ impl InstallWizard {
             self.config_port
         );
 
-        let paragraph = Paragraph::new(text).block(block);
+        let paragraph = Paragraph::new(text).style(Theme::text()).block(block);
         f.render_widget(paragraph, area);
     }
 
     fn draw_installing(&self, f: &mut Frame, area: Rect) {
         let block = Block::default()
             .title(" 安装中... ")
+            .title_style(Theme::warning())
             .borders(Borders::ALL)
-            .style(Style::default().fg(Color::Yellow));
+            .border_style(Theme::border_warning());
 
-        let paragraph = Paragraph::new(self.install_message.clone()).block(block);
+        let paragraph = Paragraph::new(self.install_message.clone())
+            .style(Theme::warning())
+            .block(block);
         f.render_widget(paragraph, area);
     }
 
     fn draw_done(&self, f: &mut Frame, area: Rect) {
         let block = Block::default()
             .title(" 安装完成 ")
+            .title_style(Theme::success())
             .borders(Borders::ALL)
-            .style(Style::default().fg(Color::Green));
+            .border_style(Theme::border_success());
 
         let text = format!(
             "{} 已成功安装!\n\n按 Enter 返回主菜单。",
             self.selected_service.as_deref().unwrap_or("服务")
         );
 
-        let paragraph = Paragraph::new(text).block(block);
+        let paragraph = Paragraph::new(text).style(Theme::success()).block(block);
         f.render_widget(paragraph, area);
     }
 }

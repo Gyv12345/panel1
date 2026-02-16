@@ -1,20 +1,53 @@
 //! AI 对话面板组件
+//!
+//! 使用 Catppuccin Mocha 主题的现代化 AI 对话界面
 
 use anyhow::Result;
-use panel_ai::LlmProvider;
 use crossterm::event::{KeyCode, KeyEvent};
+use panel_ai::LlmProvider;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
 };
+
+use crate::theme::Theme;
 
 /// 聊天消息
 #[derive(Debug, Clone)]
 struct ChatMessage {
     role: String,
     content: String,
+}
+
+impl ChatMessage {
+    /// 获取样式
+    fn style(&self) -> ratatui::style::Style {
+        match self.role.as_str() {
+            "user" => Theme::accent(),
+            "assistant" => Theme::success(),
+            _ => Theme::subtext(),
+        }
+    }
+
+    /// 获取前缀
+    fn prefix(&self) -> &'static str {
+        match self.role.as_str() {
+            "user" => "你",
+            "assistant" => "AI",
+            _ => "系统",
+        }
+    }
+
+    /// 获取图标
+    fn icon(&self) -> &'static str {
+        match self.role.as_str() {
+            "user" => "◈",
+            "assistant" => "◆",
+            _ => "○",
+        }
+    }
 }
 
 /// AI 对话面板组件
@@ -39,7 +72,7 @@ impl AiChatPanel {
         Self {
             messages: vec![ChatMessage {
                 role: "system".to_string(),
-                content: "欢迎使用 Panel1 AI 助手！我可以帮助你：\n- 安装和配置服务\n- 诊断系统问题\n- 提供运维建议\n\n请输入你的问题。".to_string(),
+                content: "欢迎使用 Panel1 AI 助手！\n\n我可以帮助你：\n• 安装和配置服务\n• 诊断系统问题\n• 提供运维建议\n\n按 i 开始输入你的问题。".to_string(),
             }],
             input_buffer: String::new(),
             is_inputting: false,
@@ -144,36 +177,39 @@ impl AiChatPanel {
 
     fn draw_chat_area(&self, f: &mut Frame, area: Rect) {
         let block = Block::default()
-            .title(" AI 助手 (i:输入 ↑↓:滚动) ")
-            .borders(Borders::ALL);
+            .title(" AI 助手 ")
+            .title_style(Theme::card_title())
+            .borders(Borders::ALL)
+            .border_style(Theme::border());
 
         let items: Vec<ListItem> = self
             .messages
             .iter()
             .skip(self.scroll_offset)
             .flat_map(|msg| {
-                let role_prefix = match msg.role.as_str() {
-                    "user" => "你: ",
-                    "assistant" => "AI: ",
-                    _ => "",
-                };
-
-                let style = match msg.role.as_str() {
-                    "user" => Style::default().fg(Color::Cyan),
-                    "assistant" => Style::default().fg(Color::Green),
-                    _ => Style::default().fg(Color::Gray),
-                };
+                let style = msg.style();
+                let prefix = msg.prefix();
+                let icon = msg.icon();
 
                 msg.content
                     .lines()
                     .enumerate()
                     .map(move |(i, line)| {
-                        let text = if i == 0 {
-                            format!("{}{}", role_prefix, line)
+                        let spans = if i == 0 {
+                            vec![
+                                Span::styled(icon, style),
+                                Span::raw(" "),
+                                Span::styled(
+                                    prefix,
+                                    style.add_modifier(ratatui::style::Modifier::BOLD),
+                                ),
+                                Span::raw(": "),
+                                Span::styled(line, Theme::text()),
+                            ]
                         } else {
-                            format!("   {}", line)
+                            vec![Span::raw("    "), Span::styled(line, Theme::text())]
                         };
-                        ListItem::new(text).style(style)
+                        ListItem::new(Line::from(spans))
                     })
                     .collect::<Vec<_>>()
             })
@@ -184,32 +220,40 @@ impl AiChatPanel {
     }
 
     fn draw_input_area(&self, f: &mut Frame, area: Rect) {
-        let title = if self.waiting_for_response {
-            " 等待响应... "
+        let (title, border_style) = if self.waiting_for_response {
+            (" 等待响应... ", Theme::border_warning())
         } else if self.is_inputting {
-            " 输入消息 (Enter:发送 Esc:取消) "
+            (" 输入消息 ", Theme::border_accent())
         } else {
-            " 按 i 开始输入 "
+            (" 按 i 开始输入 ", Theme::border())
         };
 
-        let block =
-            Block::default()
-                .title(title)
-                .borders(Borders::ALL)
-                .style(if self.is_inputting {
-                    Style::default().fg(Color::Yellow)
-                } else {
-                    Style::default()
-                });
+        let block = Block::default()
+            .title(title)
+            .title_style(if self.is_inputting {
+                Theme::accent()
+            } else {
+                Theme::subtext()
+            })
+            .borders(Borders::ALL)
+            .border_style(border_style);
 
-        let input_text = if self.is_inputting {
-            format!("{}_", self.input_buffer)
+        let inner = block.inner(area);
+        f.render_widget(block, area);
+
+        // 输入内容
+        if self.is_inputting {
+            let input_text = format!("{}_", self.input_buffer);
+            let paragraph = Paragraph::new(input_text).style(Theme::input_focused());
+            f.render_widget(paragraph, inner);
+        } else if self.waiting_for_response {
+            let paragraph = Paragraph::new("AI 正在思考...").style(Theme::warning());
+            f.render_widget(paragraph, inner);
         } else {
-            String::new()
-        };
-
-        let paragraph = Paragraph::new(input_text).block(block);
-        f.render_widget(paragraph, area);
+            let hint = "按 [i] 开始输入 | [↑↓] 滚动";
+            let paragraph = Paragraph::new(hint).style(Theme::subtext());
+            f.render_widget(paragraph, inner);
+        }
     }
 }
 

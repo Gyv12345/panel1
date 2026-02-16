@@ -1,4 +1,6 @@
 //! TUI 应用状态机
+//!
+//! 使用 Catppuccin Mocha 主题的现代化界面
 
 use anyhow::Result;
 use crossterm::{
@@ -6,15 +8,21 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::{backend::CrosstermBackend, style::Modifier, Terminal};
+use ratatui::{backend::CrosstermBackend, Terminal};
 use std::cell::RefCell;
 use std::io;
 use std::time::Duration;
 
+use crate::theme::Theme;
 use crate::ui::ai_chat::AiChatPanel;
+use crate::ui::components::status_bar;
 use crate::ui::dashboard::Dashboard;
 use crate::ui::services::ServicesPanel;
+use crate::ui::settings::SettingsPanel;
 use crate::ui::wizard::InstallWizard;
+
+/// 应用版本号
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// 应用模式
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -27,8 +35,48 @@ pub enum AppMode {
     Wizard,
     /// AI 对话
     AiChat,
+    /// 设置
+    Settings,
     /// 退出
     Quit,
+}
+
+impl AppMode {
+    /// 获取模式名称
+    fn name(&self) -> &'static str {
+        match self {
+            AppMode::Dashboard => "仪表盘",
+            AppMode::Services => "服务管理",
+            AppMode::Wizard => "安装向导",
+            AppMode::AiChat => "AI 对话",
+            AppMode::Settings => "设置",
+            AppMode::Quit => "退出",
+        }
+    }
+
+    /// 获取标签索引
+    fn tab_index(&self) -> usize {
+        match self {
+            AppMode::Dashboard => 0,
+            AppMode::Services => 1,
+            AppMode::Wizard => 2,
+            AppMode::AiChat => 3,
+            AppMode::Settings => 4,
+            AppMode::Quit => 0,
+        }
+    }
+
+    /// 从数字键获取模式
+    fn from_key(key: char) -> Option<Self> {
+        match key {
+            '1' => Some(AppMode::Dashboard),
+            '2' => Some(AppMode::Services),
+            '3' => Some(AppMode::Wizard),
+            '4' => Some(AppMode::AiChat),
+            '5' => Some(AppMode::Settings),
+            _ => None,
+        }
+    }
 }
 
 /// 应用状态
@@ -74,6 +122,8 @@ pub struct App {
     wizard: RefCell<InstallWizard>,
     /// AI 对话面板
     ai_chat: RefCell<AiChatPanel>,
+    /// 设置面板
+    settings_panel: RefCell<SettingsPanel>,
 }
 
 impl App {
@@ -87,6 +137,7 @@ impl App {
             services_panel: RefCell::new(ServicesPanel::new()),
             wizard: RefCell::new(InstallWizard::new()),
             ai_chat: RefCell::new(AiChatPanel::new()),
+            settings_panel: RefCell::new(SettingsPanel::new()),
         })
     }
 
@@ -143,17 +194,10 @@ impl App {
                         (KeyModifiers::NONE, KeyCode::Char('?')) => {
                             self.state.show_help = !self.state.show_help;
                         }
-                        (KeyModifiers::NONE, KeyCode::Char('1')) => {
-                            self.state.mode = AppMode::Dashboard;
-                        }
-                        (KeyModifiers::NONE, KeyCode::Char('2')) => {
-                            self.state.mode = AppMode::Services;
-                        }
-                        (KeyModifiers::NONE, KeyCode::Char('3')) => {
-                            self.state.mode = AppMode::Wizard;
-                        }
-                        (KeyModifiers::NONE, KeyCode::Char('4')) => {
-                            self.state.mode = AppMode::AiChat;
+                        (KeyModifiers::NONE, KeyCode::Char(c @ '1'..='5')) => {
+                            if let Some(mode) = AppMode::from_key(c) {
+                                self.state.mode = mode;
+                            }
                         }
                         // 模式特定处理
                         _ => self.handle_key_event(key).await?,
@@ -170,6 +214,7 @@ impl App {
     }
 
     /// 处理按键事件
+    #[allow(clippy::await_holding_refcell_ref)]
     async fn handle_key_event(&mut self, key: event::KeyEvent) -> Result<()> {
         match self.state.mode {
             AppMode::Dashboard => {
@@ -186,6 +231,9 @@ impl App {
             AppMode::AiChat => {
                 self.ai_chat.borrow_mut().handle_key(key).await?;
             }
+            AppMode::Settings => {
+                self.settings_panel.borrow_mut().handle_key(key);
+            }
             AppMode::Quit => {
                 self.state.should_quit = true;
             }
@@ -201,14 +249,14 @@ impl App {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3), // 标题栏
+                Constraint::Length(3), // 标签栏
                 Constraint::Min(0),    // 主内容
                 Constraint::Length(1), // 状态栏
             ])
             .split(f.area());
 
-        // 绘制标题栏
-        self.draw_title_bar(f, chunks[0]);
+        // 绘制标签栏
+        self.draw_tab_bar(f, chunks[0]);
 
         // 根据模式绘制主内容
         match self.state.mode {
@@ -226,6 +274,9 @@ impl App {
             AppMode::AiChat => {
                 self.ai_chat.borrow().draw(f, chunks[1]);
             }
+            AppMode::Settings => {
+                self.settings_panel.borrow().draw(f, chunks[1]);
+            }
             AppMode::Quit => {}
         }
 
@@ -238,96 +289,155 @@ impl App {
         }
     }
 
-    /// 绘制标题栏
-    fn draw_title_bar(&self, f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
-        use ratatui::style::{Color, Style};
-        use ratatui::widgets::{Block, Borders, Paragraph};
+    /// 绘制标签栏
+    fn draw_tab_bar(&self, f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
+        use ratatui::{
+            layout::{Constraint, Direction, Layout},
+            widgets::{Block, Borders, Paragraph, Tabs},
+        };
 
-        let title = Paragraph::new(" Panel1 - Linux 服务器管理面板 ")
-            .style(
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
+        let tabs = ["仪表盘", "服务", "安装", "AI", "设置"];
+        let selected = self.state.mode.tab_index();
+
+        let chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Min(0), Constraint::Length(15)])
+            .split(area);
+
+        // 标签页
+        let titles: Vec<String> = tabs
+            .iter()
+            .enumerate()
+            .map(|(i, tab)| {
+                if i == selected {
+                    format!(" {} ", tab)
+                } else {
+                    format!("[{}] {} ", i + 1, tab)
+                }
+            })
+            .collect();
+
+        let tab_widget = Tabs::new(titles)
+            .block(
+                Block::default()
+                    .borders(Borders::BOTTOM)
+                    .border_style(Theme::border()),
             )
-            .block(Block::default().borders(Borders::BOTTOM));
+            .select(selected)
+            .style(Theme::tab_inactive())
+            .highlight_style(Theme::tab_active());
 
-        f.render_widget(title, area);
+        f.render_widget(tab_widget, chunks[0]);
+
+        // 版本号
+        let version = Paragraph::new(format!(" Panel1 {} ", VERSION))
+            .style(Theme::subtext())
+            .alignment(ratatui::layout::Alignment::Right);
+
+        f.render_widget(version, chunks[1]);
     }
 
     /// 绘制状态栏
     fn draw_status_bar(&self, f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
-        use ratatui::style::{Color, Style};
-        use ratatui::widgets::Paragraph;
+        let m = self.monitor.borrow();
+        let mem_info = m.get_memory_info();
+        drop(m);
 
-        let mode_str = match self.state.mode {
-            AppMode::Dashboard => "仪表盘",
-            AppMode::Services => "服务管理",
-            AppMode::Wizard => "安装向导",
-            AppMode::AiChat => "AI 对话",
-            AppMode::Quit => "退出",
-        };
+        let mut m = self.monitor.borrow_mut();
+        let cpu_info = m.get_cpu_info();
+        drop(m);
 
-        let status = format!(
-            " {} | 1:仪表盘 2:服务 3:安装 4:AI | ?:帮助 q:退出 ",
-            mode_str
-        );
+        let time = chrono::Local::now().format("%H:%M:%S");
 
-        let paragraph =
-            Paragraph::new(status).style(Style::default().fg(Color::White).bg(Color::DarkGray));
-
-        f.render_widget(paragraph, area);
+        status_bar()
+            .mode(self.state.mode.name())
+            .hint("?", "帮助")
+            .hint("q", "退出")
+            .extra(vec![
+                format!("CPU: {:.0}%", cpu_info.usage),
+                format!("MEM: {:.0}%", mem_info.usage),
+                time.to_string(),
+            ])
+            .draw(f, area);
     }
 
     /// 绘制帮助覆盖层
     fn draw_help_overlay(&self, f: &mut ratatui::Frame) {
-        use ratatui::style::{Color, Style};
-        use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+        use ratatui::{
+            layout::{Constraint, Layout},
+            widgets::{Block, Borders, Clear, Paragraph},
+        };
 
-        let area = centered_rect(60, 50, f.area());
+        let area = centered_rect(60, 60, f.area());
         f.render_widget(Clear, area);
 
         let block = Block::default()
             .title(" 帮助 ")
+            .title_style(Theme::title())
             .borders(Borders::ALL)
-            .style(Style::default().fg(Color::Yellow));
+            .border_style(Theme::border_accent());
 
-        let help_text = r#"
-快捷键说明:
+        let inner = block.inner(area);
+        f.render_widget(block, area);
 
-全局:
-  1 - 仪表盘
-  2 - 服务管理
-  3 - 安装向导
-  4 - AI 对话
-  ? - 显示/隐藏帮助
-  q - 退出
+        let chunks = Layout::default()
+            .direction(ratatui::layout::Direction::Vertical)
+            .constraints([
+                Constraint::Length(2),
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Min(0),
+            ])
+            .split(inner);
 
-仪表盘:
-  ↑/↓ - 滚动
-  r - 刷新
+        // 全局快捷键
+        let global_help = " 全局快捷键:";
+        let global = Paragraph::new(global_help)
+            .style(Theme::accent())
+            .alignment(ratatui::layout::Alignment::Left);
+        f.render_widget(global, chunks[0]);
 
-服务管理:
-  ↑/↓ - 选择服务
-  Enter - 查看详情
-  s - 启动服务
-  t - 停止服务
+        let nav_help = " [1-5] 切换页面  |  [?] 显示/隐藏帮助  |  [q] 退出";
+        let nav = Paragraph::new(nav_help)
+            .style(Theme::text())
+            .alignment(ratatui::layout::Alignment::Left);
+        f.render_widget(nav, chunks[1]);
 
-安装向导:
-  Tab - 下一步
-  ↑/↓ - 选择选项
-  Enter - 确认
+        // 仪表盘
+        let dash_title = " 仪表盘:";
+        let dash_t = Paragraph::new(dash_title)
+            .style(Theme::accent())
+            .alignment(ratatui::layout::Alignment::Left);
+        f.render_widget(dash_t, chunks[2]);
 
-AI 对话:
-  i - 输入消息
-  Enter - 发送
-  Esc - 取消输入
+        let dash_help = "  [↑↓] 滚动  |  [r] 刷新";
+        let dash = Paragraph::new(dash_help)
+            .style(Theme::text())
+            .alignment(ratatui::layout::Alignment::Left);
+        f.render_widget(dash, chunks[3]);
 
-按任意键关闭帮助
-"#;
+        // 服务管理
+        let svc_title = " 服务管理:";
+        let svc_t = Paragraph::new(svc_title)
+            .style(Theme::accent())
+            .alignment(ratatui::layout::Alignment::Left);
+        f.render_widget(svc_t, chunks[4]);
 
-        let paragraph = Paragraph::new(help_text).block(block);
+        let svc_help = "  [↑↓] 选择  |  [s] 启动  |  [t] 停止  |  [R] 重启  |  [r] 刷新";
+        let svc = Paragraph::new(svc_help)
+            .style(Theme::text())
+            .alignment(ratatui::layout::Alignment::Left);
+        f.render_widget(svc, chunks[5]);
 
-        f.render_widget(paragraph, area);
+        // AI 对话
+        let ai_help = " AI 对话: [i] 输入  |  [Enter] 发送  |  [Esc] 取消  |  [↑↓] 滚动";
+        let ai = Paragraph::new(ai_help)
+            .style(Theme::subtext())
+            .alignment(ratatui::layout::Alignment::Left);
+        f.render_widget(ai, chunks[6]);
     }
 }
 

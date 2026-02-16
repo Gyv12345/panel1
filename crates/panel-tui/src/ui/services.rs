@@ -1,14 +1,18 @@
 //! 服务管理面板组件
+//!
+//! 使用 Catppuccin Mocha 主题的现代化服务管理界面
 
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use panel_core::ServiceManager;
 use ratatui::{
-    layout::Rect,
-    style::{Color, Style},
+    layout::{Constraint, Direction, Layout, Rect},
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
 };
+
+use crate::theme::{CatppuccinMocha, Theme};
+use crate::ui::components::status_bar;
 
 /// 服务管理面板组件
 pub struct ServicesPanel {
@@ -99,73 +103,135 @@ impl ServicesPanel {
             self.refresh_services(manager);
         }
 
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Min(0),    // 服务列表
+                Constraint::Length(1), // 状态栏
+            ])
+            .split(area);
+
+        // 绘制服务列表
+        self.draw_services_list(f, chunks[0]);
+
+        // 绘制状态栏
+        self.draw_status_bar(f, chunks[1]);
+    }
+
+    fn draw_services_list(&mut self, f: &mut Frame, area: Rect) {
         let block = Block::default()
-            .title(" 服务管理 (r:刷新 s:启动 t:停止 R:重启) ")
-            .borders(Borders::ALL);
+            .title(" 服务管理 ")
+            .title_style(Theme::card_title())
+            .borders(Borders::ALL)
+            .border_style(Theme::border());
 
         if self.loading {
-            let paragraph = Paragraph::new("加载中...").block(block);
-            f.render_widget(paragraph, area);
-            return;
-        }
-
-        if let Some(ref error) = self.error {
-            let paragraph = Paragraph::new(format!("错误: {}", error))
-                .style(Style::default().fg(Color::Red))
+            let paragraph = Paragraph::new(" 加载中...")
+                .style(Theme::subtext())
                 .block(block);
             f.render_widget(paragraph, area);
             return;
         }
 
-        let items: Vec<ListItem> = self
+        if let Some(ref error) = self.error {
+            let paragraph = Paragraph::new(format!(" 错误: {}", error))
+                .style(Theme::error())
+                .block(block);
+            f.render_widget(paragraph, area);
+            return;
+        }
+
+        // 按状态分组
+        let (running, stopped): (Vec<_>, Vec<_>) = self
             .services
             .iter()
             .enumerate()
-            .map(|(i, service)| {
-                let status_color = match service.status {
-                    panel_core::ServiceStatus::Running => Color::Green,
-                    panel_core::ServiceStatus::Stopped => Color::Gray,
-                    panel_core::ServiceStatus::Failed => Color::Red,
-                    panel_core::ServiceStatus::Loading => Color::Yellow,
-                    panel_core::ServiceStatus::Unknown => Color::White,
-                };
+            .partition(|(_, s)| matches!(s.status, panel_core::ServiceStatus::Running));
 
-                let status_text = match service.status {
-                    panel_core::ServiceStatus::Running => "●",
-                    panel_core::ServiceStatus::Stopped => "○",
-                    panel_core::ServiceStatus::Failed => "✗",
-                    panel_core::ServiceStatus::Loading => "◐",
-                    panel_core::ServiceStatus::Unknown => "?",
-                };
+        let mut items = Vec::new();
 
-                let enabled_text = if service.enabled {
-                    "[启用]"
-                } else {
-                    "[禁用]"
-                };
+        // 运行中的服务
+        if !running.is_empty() {
+            items.push(
+                ListItem::new(format!(" ── 运行中 ({}) ──", running.len())).style(Theme::success()),
+            );
+            for (i, service) in &running {
+                items.push(self.create_service_item(*i, service));
+            }
+        }
 
-                let _style = if i == self.selected_index {
-                    Style::default().fg(Color::Yellow).bg(Color::DarkGray)
-                } else {
-                    Style::default().fg(Color::White)
-                };
-
-                ListItem::new(format!(
-                    " {} {} {} {}",
-                    status_text, service.name, enabled_text, service.description
-                ))
-                .style(Style::default().fg(status_color).bg(
-                    if i == self.selected_index {
-                        Color::DarkGray
-                    } else {
-                        Color::Reset
-                    },
-                ))
-            })
-            .collect();
+        // 已停止的服务
+        if !stopped.is_empty() {
+            items.push(
+                ListItem::new(format!(" ── 已停止 ({}) ──", stopped.len())).style(Theme::subtext()),
+            );
+            for (i, service) in &stopped {
+                items.push(self.create_service_item(*i, service));
+            }
+        }
 
         let list = List::new(items).block(block);
         f.render_widget(list, area);
+    }
+
+    fn create_service_item(
+        &self,
+        index: usize,
+        service: &panel_core::ServiceInfo,
+    ) -> ListItem<'static> {
+        let status_color = match service.status {
+            panel_core::ServiceStatus::Running => CatppuccinMocha::GREEN,
+            panel_core::ServiceStatus::Stopped => CatppuccinMocha::SUBTEXT0,
+            panel_core::ServiceStatus::Failed => CatppuccinMocha::RED,
+            panel_core::ServiceStatus::Loading => CatppuccinMocha::YELLOW,
+            panel_core::ServiceStatus::Unknown => CatppuccinMocha::SUBTEXT1,
+        };
+
+        let status_icon = match service.status {
+            panel_core::ServiceStatus::Running => "●",
+            panel_core::ServiceStatus::Stopped => "○",
+            panel_core::ServiceStatus::Failed => "✗",
+            panel_core::ServiceStatus::Loading => "◐",
+            panel_core::ServiceStatus::Unknown => "?",
+        };
+
+        let enabled_text = if service.enabled {
+            "[启用]"
+        } else {
+            "[禁用]"
+        };
+
+        let content = format!(
+            "  {} {} {} {}",
+            status_icon, service.name, enabled_text, service.description
+        );
+
+        let style = if index == self.selected_index {
+            ratatui::style::Style::default()
+                .fg(status_color)
+                .bg(CatppuccinMocha::SURFACE1)
+        } else {
+            ratatui::style::Style::default().fg(status_color)
+        };
+
+        ListItem::new(content).style(style)
+    }
+
+    fn draw_status_bar(&self, f: &mut Frame, area: Rect) {
+        let running_count = self
+            .services
+            .iter()
+            .filter(|s| matches!(s.status, panel_core::ServiceStatus::Running))
+            .count();
+        let total_count = self.services.len();
+
+        status_bar()
+            .hint("r", "刷新")
+            .hint("s", "启动")
+            .hint("t", "停止")
+            .hint("R", "重启")
+            .extra(vec![format!("运行中: {}/{}", running_count, total_count)])
+            .draw(f, area);
     }
 }
 
