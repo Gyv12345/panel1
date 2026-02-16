@@ -1,6 +1,7 @@
 //! AI 对话面板组件
 
 use anyhow::Result;
+use panel_ai::LlmProvider;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -28,6 +29,8 @@ pub struct AiChatPanel {
     scroll_offset: usize,
     /// 是否正在等待响应
     waiting_for_response: bool,
+    /// AI Provider
+    provider: panel_ai::ClaudeProvider,
 }
 
 impl AiChatPanel {
@@ -42,6 +45,7 @@ impl AiChatPanel {
             is_inputting: false,
             scroll_offset: 0,
             waiting_for_response: false,
+            provider: panel_ai::ClaudeProvider::new(),
         }
     }
 
@@ -101,15 +105,15 @@ impl AiChatPanel {
             content: user_message.clone(),
         });
 
-        // 模拟 AI 响应
-        // TODO: 集成实际的 AI Provider
         self.waiting_for_response = true;
 
-        // 模拟延迟
-        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        // 使用真实的 AI Provider
+        let response = match self.provider.send(&user_message).await {
+            Ok(resp) => resp.content,
+            Err(e) => format!("AI 响应错误: {}", e),
+        };
 
-        // 添加模拟响应
-        let response = self.generate_mock_response(&user_message);
+        // 添加 AI 响应
         self.messages.push(ChatMessage {
             role: "assistant".to_string(),
             content: response,
@@ -119,12 +123,6 @@ impl AiChatPanel {
         self.scroll_offset = self.messages.len().saturating_sub(1);
 
         Ok(())
-    }
-
-    /// 生成模拟响应
-    fn generate_mock_response(&self, _input: &str) -> String {
-        // TODO: 集成实际的 AI API
-        "感谢你的问题！目前 AI 功能正在开发中。\n\n你可以使用以下命令：\n- panel1 ai diagnose - 系统诊断\n- panel1 ai install <服务名> - 获取安装建议".to_string()
     }
 
     /// 绘制 AI 对话面板

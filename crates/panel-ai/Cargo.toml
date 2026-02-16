@@ -20,8 +20,8 @@ serde_json = { workspace = true }
 # HTTP 客户端
 reqwest = { workspace = true }
 
-# AI 相关
-async-openai = { workspace = true }
+# AI 相关 - 使用 genai 替代 claude-agent
+genai = "0.2"
 
 # 工具库
 anyhow = { workspace = true }

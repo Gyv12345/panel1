@@ -93,7 +93,10 @@ enum AiCommands {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    // 启用详细日志
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
 
     let cli = Cli::parse();
 
@@ -308,13 +311,7 @@ async fn handle_install_command(name: &str, mode: &str, version: Option<&str>) -
 }
 
 fn create_ai_provider() -> Result<Arc<dyn panel_ai::LlmProvider>> {
-    // 尝试使用 OpenAI
-    if let Ok(provider) = panel_ai::OpenAiProvider::from_env() {
-        return Ok(Arc::new(provider));
-    }
-
-    // 回退到 Ollama
-    println!("Note: OPENAI_API_KEY not set, using Ollama (local model)");
-    let provider = panel_ai::OllamaProvider::with_model("llama3");
+    // 使用 Claude Provider（支持网关模式）
+    let provider = panel_ai::ClaudeProvider::new();
     Ok(Arc::new(provider))
 }
