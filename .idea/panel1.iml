@@ -2,6 +2,13 @@
 <module type="EMPTY_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/crates/panel-ai/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/panel-cli/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/panel-core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/panel-docker/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/panel-service/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/panel-tui/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/panel-web/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>

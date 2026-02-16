@@ -278,7 +278,7 @@ impl App {
     fn draw_help_overlay(&self, f: &mut ratatui::Frame) {
         use ratatui::widgets::{Block, Borders, Paragraph, Clear};
         use ratatui::style::{Style, Color};
-        use ratatui::layout::{Constraint, Layout};
+        
 
         let area = centered_rect(60, 50, f.area());
         f.render_widget(Clear, area);

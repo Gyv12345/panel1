@@ -61,7 +61,7 @@ impl ServiceManager {
             if parts.len() >= 4 {
                 let name = parts[0].to_string();
                 if name.ends_with(".service") {
-                    let load_state = parts.get(1).unwrap_or(&"");
+                    let _load_state = parts.get(1).unwrap_or(&"");
                     let active_state = parts.get(2).unwrap_or(&"");
                     let sub_state = parts.get(3).unwrap_or(&"");
                     let description = parts[4..].join(" ");
@@ -69,7 +69,7 @@ impl ServiceManager {
                     services.push(ServiceInfo {
                         name: name.clone(),
                         description,
-                        status: self.parse_status(*active_state, *sub_state),
+                        status: self.parse_status(active_state, sub_state),
                         enabled: self.is_enabled(&name)?,
                         main_pid: None,
                         active_state: active_state.to_string(),

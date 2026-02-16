@@ -162,6 +162,6 @@ impl LlmProvider for OpenAiProvider {
         }
 
         // 尝试一个简单的请求
-        matches!(self.send("Hi").await, Ok(_))
+        (self.send("Hi").await).is_ok()
     }
 }

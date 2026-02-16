@@ -93,7 +93,9 @@ chmod +x "${DIST_DIR}/uninstall.sh"
 # 打包
 echo "Creating archive..."
 cd dist
-tar -czvf "panel1-${VERSION}-${OS}-${ARCH}.tar.gz" "panel1-${VERSION}-${OS}-${ARCH}"
+# 使用 --no-xattrs 避免 macOS 扩展属性警告
+COPYFILE_DISABLE=1 tar --no-xattrs -czvf "panel1-${VERSION}-${OS}-${ARCH}.tar.gz" "panel1-${VERSION}-${OS}-${ARCH}" 2>/dev/null || \
+COPYFILE_DISABLE=1 tar -czvf "panel1-${VERSION}-${OS}-${ARCH}.tar.gz" "panel1-${VERSION}-${OS}-${ARCH}"
 
 echo ""
 echo "=== Build Complete ==="

@@ -3,11 +3,11 @@
 use anyhow::{Result, Context, bail};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Child};
+use std::process::Command;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn, error};
+use tracing::info;
 
 use crate::manager::{ManagedService, ServiceStatus};
 

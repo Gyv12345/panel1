@@ -4,7 +4,7 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use panel_core::ServiceManager;
 use ratatui::{
-    layout::{Constraint, Rect},
+    layout::Rect,
     style::{Color, Style},
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
@@ -140,7 +140,7 @@ impl ServicesPanel {
 
                 let enabled_text = if service.enabled { "[启用]" } else { "[禁用]" };
 
-                let style = if i == self.selected_index {
+                let _style = if i == self.selected_index {
                     Style::default().fg(Color::Yellow).bg(Color::DarkGray)
                 } else {
                     Style::default().fg(Color::White)

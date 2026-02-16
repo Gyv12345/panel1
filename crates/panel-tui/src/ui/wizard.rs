@@ -3,7 +3,7 @@
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::Rect,
     style::{Color, Style},
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
@@ -281,11 +281,9 @@ impl InstallWizard {
             .title(" 步骤 3/5: 选择安装模式 ")
             .borders(Borders::ALL);
 
-        let modes = vec![
-            ("Systemd", "使用系统包管理器安装，由 systemd 管理"),
+        let modes = [("Systemd", "使用系统包管理器安装，由 systemd 管理"),
             ("Panel1", "由 Panel1 下载和管理二进制文件"),
-            ("Docker", "使用 Docker 容器运行"),
-        ];
+            ("Docker", "使用 Docker 容器运行")];
 
         let items: Vec<ListItem> = modes
             .iter()
@@ -309,7 +307,7 @@ impl InstallWizard {
             .title(" 步骤 4/5: 配置服务 ")
             .borders(Borders::ALL);
 
-        let modes = vec!["Systemd", "Panel1", "Docker"];
+        let modes = ["Systemd", "Panel1", "Docker"];
         let mode_name = modes.get(self.selected_mode).unwrap_or(&"Unknown");
 
         let text = format!(
@@ -335,7 +333,7 @@ impl InstallWizard {
             .title(" 步骤 5/5: 确认安装 ")
             .borders(Borders::ALL);
 
-        let modes = vec!["Systemd", "Panel1", "Docker"];
+        let modes = ["Systemd", "Panel1", "Docker"];
         let mode_name = modes.get(self.selected_mode).unwrap_or(&"Unknown");
 
         let text = format!(

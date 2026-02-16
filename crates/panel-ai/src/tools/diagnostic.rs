@@ -394,7 +394,7 @@ impl DiagnosticTool {
             .filter_map(|line| {
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 2 {
-                    let port_str = parts[0].split(':').last()?;
+                    let port_str = parts[0].split(':').next_back()?;
                     let port: u16 = port_str.parse().ok()?;
                     let service = parts.get(1)
                         .and_then(|s| s.split(',').next())

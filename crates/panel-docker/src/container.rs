@@ -156,8 +156,8 @@ impl ContainerManager {
             .into_iter()
             .filter_map(|p| {
                 Some(PortMapping {
-                    container_port: p.private_port as u16,
-                    host_port: p.public_port? as u16,
+                    container_port: p.private_port,
+                    host_port: p.public_port?,
                     protocol: "tcp".to_string(),
                     host_ip: p.ip.unwrap_or_default(),
                 })
