@@ -63,7 +63,7 @@ ratatui = "0.28"
 crossterm = "0.28"
 
 # HTTP 客户端
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 
 # AI 相关
 claude-agent = "0.2"
@@ -71,3 +71,8 @@ claude-agent = "0.2"
 # 其他
 lazy_static = "1.4"
 dirs = "5"
+
+# 校验和
+sha2 = "0.10"
+hex = "0.4"
+md-5 = "0.10"

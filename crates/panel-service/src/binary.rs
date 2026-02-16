@@ -10,6 +10,10 @@ use tokio::sync::RwLock;
 use tracing::info;
 
 use crate::manager::{ManagedService, ServiceStatus};
+use crate::registry::{
+    DownloadManager, DownloadProgress, PackageConfig, PackageRegistry, PackageSummary,
+    RegistryConfig,
+};
 
 /// 二进制配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,24 +88,180 @@ pub struct BinaryBackend {
     data_dir: PathBuf,
     /// 进程守护器
     process_guard: ProcessGuard,
+    /// 软件包注册表
+    registry: Option<PackageRegistry>,
+    /// 下载管理器
+    downloader: Option<DownloadManager>,
 }
 
 impl BinaryBackend {
     /// 创建新的二进制后端
     pub fn new() -> Self {
         let data_dir = PathBuf::from("/opt/panel/services");
+        let registry = PackageRegistry::with_defaults().ok();
+        let downloader = DownloadManager::with_defaults().ok();
+
         Self {
             data_dir,
             process_guard: ProcessGuard::new(),
+            registry,
+            downloader,
         }
     }
 
     /// 使用自定义数据目录创建
     pub fn with_data_dir(data_dir: PathBuf) -> Self {
+        let registry = PackageRegistry::with_defaults().ok();
+        let downloader = DownloadManager::with_defaults().ok();
+
         Self {
             data_dir,
             process_guard: ProcessGuard::new(),
+            registry,
+            downloader,
         }
+    }
+
+    /// 启用注册表功能
+    pub fn with_registry(mut self, config: RegistryConfig) -> Result<Self> {
+        self.registry = Some(PackageRegistry::new(config)?);
+        Ok(self)
+    }
+
+    /// 列出可用的软件包
+    pub async fn list_available_packages(&self) -> Result<Vec<PackageSummary>> {
+        let registry = self.registry.as_ref().context("Registry not initialized")?;
+
+        let index = registry.get_index().await?;
+        Ok(index.packages)
+    }
+
+    /// 搜索软件包
+    pub async fn search_packages(&self, query: &str) -> Result<Vec<PackageSummary>> {
+        let registry = self.registry.as_ref().context("Registry not initialized")?;
+
+        registry.search(query).await
+    }
+
+    /// 获取软件包配置
+    pub async fn get_package_config(&self, package_id: &str) -> Result<PackageConfig> {
+        let registry = self.registry.as_ref().context("Registry not initialized")?;
+
+        registry.get_package_config(package_id).await
+    }
+
+    /// 设置下载进度回调
+    pub async fn set_download_progress(
+        &self,
+        callback: Option<Arc<dyn Fn(DownloadProgress) + Send + Sync>>,
+    ) -> Result<()> {
+        let downloader = self
+            .downloader
+            .as_ref()
+            .context("Downloader not initialized")?;
+
+        downloader.set_progress_callback(callback).await;
+        Ok(())
+    }
+
+    /// 从注册表安装服务
+    pub async fn install_from_registry(
+        &mut self,
+        name: &str,
+        package_id: &str,
+        version: &str,
+    ) -> Result<ManagedService> {
+        let registry = self.registry.as_ref().context("Registry not initialized")?;
+
+        let downloader = self
+            .downloader
+            .as_ref()
+            .context("Downloader not initialized")?;
+
+        // 获取软件包配置
+        let config = registry.get_package_config(package_id).await?;
+
+        // 查找适合当前平台的二进制
+        let artifact = registry.find_artifact(&config, version)?.with_context(|| {
+            format!(
+                "No artifact found for {} version {} on current platform",
+                package_id, version
+            )
+        })?;
+
+        // 创建服务目录
+        let service_dir = self.data_dir.join(name);
+        tokio::fs::create_dir_all(&service_dir)
+            .await
+            .context("Failed to create service directory")?;
+
+        // 确定二进制文件名
+        let binary_name = extract_filename(&artifact.url);
+        let binary_path = service_dir.join(&binary_name);
+
+        // 下载二进制文件
+        info!(
+            "Downloading {} version {} to {:?}",
+            package_id, version, binary_path
+        );
+        downloader.download(&artifact, &binary_path).await?;
+
+        // 设置可执行权限
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            tokio::fs::set_permissions(&binary_path, std::fs::Permissions::from_mode(0o755))
+                .await
+                .context("Failed to set executable permissions")?;
+        }
+
+        // 创建符号链接
+        if let Some(ref binary_config) = config.install.binary {
+            for symlink in &binary_config.symlinks {
+                let symlink_path = service_dir.join(symlink);
+                if symlink_path.exists() {
+                    tokio::fs::remove_file(&symlink_path).await.ok();
+                }
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::symlink;
+                    let relative_path = format!("./{}", binary_name);
+                    symlink(&relative_path, &symlink_path).context("Failed to create symlink")?;
+                }
+            }
+        }
+
+        // 创建配置目录和数据目录
+        if let Some(ref service_config) = config.service {
+            if let Some(ref data_dir) = service_config.data_dir {
+                let full_data_dir = service_dir.join(data_dir);
+                tokio::fs::create_dir_all(&full_data_dir)
+                    .await
+                    .context("Failed to create data directory")?;
+            }
+            if let Some(ref log_dir) = service_config.log_dir {
+                let full_log_dir = service_dir.join(log_dir);
+                tokio::fs::create_dir_all(&full_log_dir)
+                    .await
+                    .context("Failed to create log directory")?;
+            }
+        }
+
+        // 获取默认端口
+        let port = config.service.as_ref().and_then(|s| s.default_port);
+
+        Ok(ManagedService {
+            id: None,
+            name: name.to_string(),
+            service_type: package_id.to_string(),
+            mode: crate::manager::ServiceMode::Panel1,
+            version: version.to_string(),
+            binary_path: Some(binary_path.to_string_lossy().to_string()),
+            config_path: None,
+            port,
+            status: ServiceStatus::Stopped,
+            auto_start: false,
+        })
     }
 
     /// 安装服务
@@ -246,4 +406,9 @@ impl Default for BinaryBackend {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// 从 URL 中提取文件名
+fn extract_filename(url: &str) -> String {
+    url.rsplit('/').next().unwrap_or("binary").to_string()
 }

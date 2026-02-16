@@ -1,0 +1,15 @@
+target/
+dist/
+.git/
+.gitignore
+*.md
+.agent/
+.claude/
+.cursor/
+.github/
+.kiro/
+.shared/
+.windsurf/
+.idea/
+*.iml
+.DS_Store

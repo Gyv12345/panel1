@@ -29,5 +29,10 @@ chrono = { workspace = true }
 # 进程管理
 sysinfo = { workspace = true }
 
+# 校验和
+sha2 = { workspace = true }
+hex = { workspace = true }
+md-5 = { workspace = true }
+
 [dev-dependencies]
 tokio-test = "0.4"

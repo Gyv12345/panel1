@@ -1,0 +1,20 @@
+# Panel1 构建镜像
+# 用于在 Docker 中编译 Linux x86_64 版本
+
+FROM --platform=linux/amd64 rust:latest
+
+# 安装构建依赖
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# 复制项目文件
+COPY . .
+
+# 构建 release 版本
+RUN cargo build --release
+
+# 输出文件在 /build/target/release/panel1

@@ -47,6 +47,29 @@ impl TemplateRegistry {
 
     /// 注册内置模板
     fn register_builtin_templates(&mut self) {
+        // Node.js 模板
+        self.register(ServiceTemplate {
+            id: "nodejs".to_string(),
+            name: "Node.js".to_string(),
+            description: "JavaScript 运行时环境".to_string(),
+            service_type: "nodejs".to_string(),
+            default_version: "22.14.0".to_string(),
+            available_versions: vec![
+                "24.0.0".to_string(),  // Current
+                "23.11.0".to_string(),
+                "22.14.0".to_string(), // LTS
+                "22.13.0".to_string(),
+                "20.19.0".to_string(), // LTS
+                "20.18.0".to_string(),
+            ],
+            default_port: 0, // Node.js 应用通常不需要固定端口
+            download_url_template:
+                "https://nodejs.org/dist/v{version}/node-v{version}-linux-x64.tar.xz".to_string(),
+            config_template: None,
+            env_template: None,
+            start_args: None,
+        });
+
         // Redis 模板
         self.register(ServiceTemplate {
             id: "redis".to_string(),
