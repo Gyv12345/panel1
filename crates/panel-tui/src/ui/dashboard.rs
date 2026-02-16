@@ -55,10 +55,10 @@ impl Dashboard {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(8),  // 系统信息
-                Constraint::Length(4),  // CPU
-                Constraint::Length(4),  // 内存
-                Constraint::Min(0),     // 磁盘
+                Constraint::Length(8), // 系统信息
+                Constraint::Length(4), // CPU
+                Constraint::Length(4), // 内存
+                Constraint::Min(0),    // 磁盘
             ])
             .split(area);
 
@@ -76,9 +76,7 @@ impl Dashboard {
     }
 
     fn draw_system_info(&self, f: &mut Frame, area: Rect, info: &panel_core::SystemInfo) {
-        let block = Block::default()
-            .title(" 系统信息 ")
-            .borders(Borders::ALL);
+        let block = Block::default().title(" 系统信息 ").borders(Borders::ALL);
 
         let uptime_hours = info.uptime / 3600;
         let uptime_mins = (info.uptime % 3600) / 60;
@@ -109,9 +107,7 @@ impl Dashboard {
             .split(area);
 
         // CPU 信息
-        let info_block = Block::default()
-            .title(" CPU ")
-            .borders(Borders::ALL);
+        let info_block = Block::default().title(" CPU ").borders(Borders::ALL);
         let info_text = format!(" {} ({} 核心)", info.brand, info.cores);
         let info_paragraph = Paragraph::new(info_text).block(info_block);
         f.render_widget(info_paragraph, chunks[0]);
@@ -131,9 +127,7 @@ impl Dashboard {
             .split(area);
 
         // 内存信息
-        let info_block = Block::default()
-            .title(" 内存 ")
-            .borders(Borders::ALL);
+        let info_block = Block::default().title(" 内存 ").borders(Borders::ALL);
         let used_gb = info.used as f64 / 1024.0 / 1024.0 / 1024.0;
         let total_gb = info.total as f64 / 1024.0 / 1024.0 / 1024.0;
         let info_text = format!(" {:.1} GB / {:.1} GB", used_gb, total_gb);
@@ -149,9 +143,7 @@ impl Dashboard {
     }
 
     fn draw_disk_table(&self, f: &mut Frame, area: Rect, disks: &[panel_core::DiskInfo]) {
-        let block = Block::default()
-            .title(" 磁盘 ")
-            .borders(Borders::ALL);
+        let block = Block::default().title(" 磁盘 ").borders(Borders::ALL);
 
         let rows: Vec<Row> = disks
             .iter()

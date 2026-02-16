@@ -1,7 +1,7 @@
 //! systemd 服务管理模块
 
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use anyhow::{Result, Context};
 use std::process::Command;
 
 /// 服务状态
@@ -49,7 +49,13 @@ impl ServiceManager {
     /// 获取所有服务列表
     pub fn get_services(&self) -> Result<Vec<ServiceInfo>> {
         let output = Command::new(&self.systemctl_path)
-            .args(["list-units", "--type=service", "--all", "--no-pager", "--no-legend"])
+            .args([
+                "list-units",
+                "--type=service",
+                "--all",
+                "--no-pager",
+                "--no-legend",
+            ])
             .output()
             .context("Failed to execute systemctl")?;
 
@@ -130,7 +136,10 @@ impl ServiceManager {
             .context("Failed to start service")?;
 
         if !output.status.success() {
-            anyhow::bail!("Failed to start service: {}", String::from_utf8_lossy(&output.stderr));
+            anyhow::bail!(
+                "Failed to start service: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         Ok(())
@@ -144,7 +153,10 @@ impl ServiceManager {
             .context("Failed to stop service")?;
 
         if !output.status.success() {
-            anyhow::bail!("Failed to stop service: {}", String::from_utf8_lossy(&output.stderr));
+            anyhow::bail!(
+                "Failed to stop service: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         Ok(())
@@ -158,7 +170,10 @@ impl ServiceManager {
             .context("Failed to restart service")?;
 
         if !output.status.success() {
-            anyhow::bail!("Failed to restart service: {}", String::from_utf8_lossy(&output.stderr));
+            anyhow::bail!(
+                "Failed to restart service: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         Ok(())
@@ -172,7 +187,10 @@ impl ServiceManager {
             .context("Failed to reload service")?;
 
         if !output.status.success() {
-            anyhow::bail!("Failed to reload service: {}", String::from_utf8_lossy(&output.stderr));
+            anyhow::bail!(
+                "Failed to reload service: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         Ok(())
@@ -186,7 +204,10 @@ impl ServiceManager {
             .context("Failed to enable service")?;
 
         if !output.status.success() {
-            anyhow::bail!("Failed to enable service: {}", String::from_utf8_lossy(&output.stderr));
+            anyhow::bail!(
+                "Failed to enable service: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         Ok(())
@@ -200,7 +221,10 @@ impl ServiceManager {
             .context("Failed to disable service")?;
 
         if !output.status.success() {
-            anyhow::bail!("Failed to disable service: {}", String::from_utf8_lossy(&output.stderr));
+            anyhow::bail!(
+                "Failed to disable service: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         Ok(())

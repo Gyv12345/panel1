@@ -2,20 +2,20 @@
 //!
 //! 提供安装助手和运维顾问功能
 
-pub mod llm;
 pub mod agents;
+pub mod llm;
 pub mod tools;
 
-pub use llm::{LlmProvider, LlmMessage, LlmResponse, LlmConfig};
-pub use llm::openai::OpenAiProvider;
+pub use agents::{AdvisorAgent, AgentResponse, InstallerAgent};
 pub use llm::ollama::OllamaProvider;
-pub use agents::{InstallerAgent, AdvisorAgent, AgentResponse};
-pub use tools::{ShellTool, DiagnosticTool, ToolResult};
+pub use llm::openai::OpenAiProvider;
+pub use llm::{LlmConfig, LlmMessage, LlmProvider, LlmResponse};
+pub use tools::{DiagnosticTool, ShellTool, ToolResult};
 
 pub mod prelude {
-    pub use crate::llm::{LlmProvider, LlmMessage, LlmResponse, LlmConfig};
-    pub use crate::llm::openai::OpenAiProvider;
+    pub use crate::agents::{AdvisorAgent, AgentResponse, InstallerAgent};
     pub use crate::llm::ollama::OllamaProvider;
-    pub use crate::agents::{InstallerAgent, AdvisorAgent, AgentResponse};
-    pub use crate::tools::{ShellTool, DiagnosticTool, ToolResult, ToolContext};
+    pub use crate::llm::openai::OpenAiProvider;
+    pub use crate::llm::{LlmConfig, LlmMessage, LlmProvider, LlmResponse};
+    pub use crate::tools::{DiagnosticTool, ShellTool, ToolContext, ToolResult};
 }

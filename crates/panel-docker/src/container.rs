@@ -1,9 +1,8 @@
 //! Docker 容器管理
 
 use bollard::container::{
-    ListContainersOptions, StartContainerOptions,
-    StopContainerOptions, RestartContainerOptions, RemoveContainerOptions,
-    LogsOptions,
+    ListContainersOptions, LogsOptions, RemoveContainerOptions, RestartContainerOptions,
+    StartContainerOptions, StopContainerOptions,
 };
 use bollard::models::ContainerSummary;
 use bollard::Docker;
@@ -87,7 +86,11 @@ impl ContainerManager {
     }
 
     /// 停止容器
-    pub async fn stop_container(&self, id: &str, timeout: Option<i32>) -> Result<(), anyhow::Error> {
+    pub async fn stop_container(
+        &self,
+        id: &str,
+        timeout: Option<i32>,
+    ) -> Result<(), anyhow::Error> {
         let options = StopContainerOptions {
             t: timeout.unwrap_or(10) as i64,
         };
@@ -96,7 +99,11 @@ impl ContainerManager {
     }
 
     /// 重启容器
-    pub async fn restart_container(&self, id: &str, timeout: Option<i32>) -> Result<(), anyhow::Error> {
+    pub async fn restart_container(
+        &self,
+        id: &str,
+        timeout: Option<i32>,
+    ) -> Result<(), anyhow::Error> {
         let options = RestartContainerOptions {
             t: timeout.unwrap_or(10) as isize,
         };
@@ -105,7 +112,12 @@ impl ContainerManager {
     }
 
     /// 删除容器
-    pub async fn remove_container(&self, id: &str, force: bool, _remove_volumes: bool) -> Result<(), anyhow::Error> {
+    pub async fn remove_container(
+        &self,
+        id: &str,
+        force: bool,
+        _remove_volumes: bool,
+    ) -> Result<(), anyhow::Error> {
         let options = RemoveContainerOptions {
             force,
             ..Default::default()
@@ -115,11 +127,17 @@ impl ContainerManager {
     }
 
     /// 获取容器日志
-    pub async fn get_container_logs(&self, id: &str, tail: Option<usize>) -> Result<Vec<String>, anyhow::Error> {
+    pub async fn get_container_logs(
+        &self,
+        id: &str,
+        tail: Option<usize>,
+    ) -> Result<Vec<String>, anyhow::Error> {
         let options = LogsOptions::<String> {
             stdout: true,
             stderr: true,
-            tail: tail.map(|t| t.to_string()).unwrap_or_else(|| "100".to_string()),
+            tail: tail
+                .map(|t| t.to_string())
+                .unwrap_or_else(|| "100".to_string()),
             ..Default::default()
         };
 
@@ -146,13 +164,16 @@ impl ContainerManager {
     fn container_summary_to_info(&self, summary: ContainerSummary) -> Option<ContainerInfo> {
         let id = summary.id?;
         let names = summary.names.unwrap_or_default();
-        let name = names.first()
+        let name = names
+            .first()
             .map(|n| n.trim_start_matches('/').to_string())
             .unwrap_or_default();
 
         let status = self.parse_status(summary.state.as_deref().unwrap_or(""));
 
-        let ports = summary.ports.unwrap_or_default()
+        let ports = summary
+            .ports
+            .unwrap_or_default()
             .into_iter()
             .filter_map(|p| {
                 Some(PortMapping {
@@ -172,7 +193,8 @@ impl ContainerManager {
             status_text: summary.status.unwrap_or_default(),
             created: summary.created.unwrap_or(0),
             ports,
-            networks: summary.network_settings
+            networks: summary
+                .network_settings
                 .and_then(|n| n.networks.map(|nets| nets.keys().cloned().collect()))
                 .unwrap_or_default(),
         })

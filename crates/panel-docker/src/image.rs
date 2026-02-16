@@ -1,6 +1,6 @@
 //! Docker 镜像管理
 
-use bollard::image::{ListImagesOptions, CreateImageOptions, RemoveImageOptions};
+use bollard::image::{CreateImageOptions, ListImagesOptions, RemoveImageOptions};
 use bollard::models::ImageSummary;
 use bollard::Docker;
 use futures::StreamExt;
@@ -50,7 +50,10 @@ impl ImageManager {
 
         let images = self.docker.list_images(Some(options)).await?;
 
-        Ok(images.into_iter().map(|i| self.image_summary_to_info(i)).collect())
+        Ok(images
+            .into_iter()
+            .map(|i| self.image_summary_to_info(i))
+            .collect())
     }
 
     /// 拉取镜像
@@ -90,7 +93,9 @@ impl ImageManager {
             ..Default::default()
         };
 
-        self.docker.remove_image(image_id, Some(options), None).await?;
+        self.docker
+            .remove_image(image_id, Some(options), None)
+            .await?;
         Ok(())
     }
 

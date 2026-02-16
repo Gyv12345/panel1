@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::systemd::SystemdBackend;
 use crate::binary::BinaryBackend;
+use crate::systemd::SystemdBackend;
 
 /// 服务运行模式
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -89,7 +89,9 @@ impl ServiceManager {
         match mode {
             ServiceMode::Systemd => {
                 // 检查系统是否已有该服务
-                let info = self.systemd_backend.get_service(&format!("{}.service", name))?;
+                let info = self
+                    .systemd_backend
+                    .get_service(&format!("{}.service", name))?;
                 Ok(ManagedService {
                     id: None,
                     name: name.to_string(),
@@ -123,7 +125,8 @@ impl ServiceManager {
     pub async fn start_service(&self, service: &ManagedService) -> Result<()> {
         match service.mode {
             ServiceMode::Systemd => {
-                self.systemd_backend.start(&format!("{}.service", service.name))?;
+                self.systemd_backend
+                    .start(&format!("{}.service", service.name))?;
             }
             ServiceMode::Panel1 => {
                 let backend = self.binary_backend.read().await;
@@ -140,7 +143,8 @@ impl ServiceManager {
     pub async fn stop_service(&self, service: &ManagedService) -> Result<()> {
         match service.mode {
             ServiceMode::Systemd => {
-                self.systemd_backend.stop(&format!("{}.service", service.name))?;
+                self.systemd_backend
+                    .stop(&format!("{}.service", service.name))?;
             }
             ServiceMode::Panel1 => {
                 let backend = self.binary_backend.read().await;
@@ -157,7 +161,8 @@ impl ServiceManager {
     pub async fn restart_service(&self, service: &ManagedService) -> Result<()> {
         match service.mode {
             ServiceMode::Systemd => {
-                self.systemd_backend.restart(&format!("{}.service", service.name))?;
+                self.systemd_backend
+                    .restart(&format!("{}.service", service.name))?;
             }
             ServiceMode::Panel1 => {
                 let backend = self.binary_backend.read().await;
@@ -175,7 +180,9 @@ impl ServiceManager {
     pub async fn get_status(&self, service: &ManagedService) -> Result<ServiceStatus> {
         match service.mode {
             ServiceMode::Systemd => {
-                let info = self.systemd_backend.get_service(&format!("{}.service", service.name))?;
+                let info = self
+                    .systemd_backend
+                    .get_service(&format!("{}.service", service.name))?;
                 Ok(match info.status {
                     panel_core::ServiceStatus::Running => ServiceStatus::Running,
                     panel_core::ServiceStatus::Stopped => ServiceStatus::Stopped,
@@ -198,8 +205,10 @@ impl ServiceManager {
     pub async fn uninstall_service(&self, service: &ManagedService) -> Result<()> {
         match service.mode {
             ServiceMode::Systemd => {
-                self.systemd_backend.disable(&format!("{}.service", service.name))?;
-                self.systemd_backend.stop(&format!("{}.service", service.name))?;
+                self.systemd_backend
+                    .disable(&format!("{}.service", service.name))?;
+                self.systemd_backend
+                    .stop(&format!("{}.service", service.name))?;
             }
             ServiceMode::Panel1 => {
                 let backend = self.binary_backend.read().await;

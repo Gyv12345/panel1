@@ -132,8 +132,8 @@ impl AiChatPanel {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Min(0),     // 聊天区域
-                Constraint::Length(3),  // 输入区域
+                Constraint::Min(0),    // 聊天区域
+                Constraint::Length(3), // 输入区域
             ])
             .split(area);
 
@@ -194,14 +194,15 @@ impl AiChatPanel {
             " 按 i 开始输入 "
         };
 
-        let block = Block::default()
-            .title(title)
-            .borders(Borders::ALL)
-            .style(if self.is_inputting {
-                Style::default().fg(Color::Yellow)
-            } else {
-                Style::default()
-            });
+        let block =
+            Block::default()
+                .title(title)
+                .borders(Borders::ALL)
+                .style(if self.is_inputting {
+                    Style::default().fg(Color::Yellow)
+                } else {
+                    Style::default()
+                });
 
         let input_text = if self.is_inputting {
             format!("{}_", self.input_buffer)

@@ -1,7 +1,7 @@
 //! AI Agents 模块
 
-mod installer;
 mod advisor;
+mod installer;
 
-pub use installer::{InstallerAgent, AgentResponse};
 pub use advisor::AdvisorAgent;
+pub use installer::{AgentResponse, InstallerAgent};

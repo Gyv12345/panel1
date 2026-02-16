@@ -2,19 +2,19 @@
 //!
 //! 提供系统信息获取、进程管理、服务管理、网络配置等功能
 
-pub mod system;
+pub mod network;
 pub mod process;
 pub mod service;
-pub mod network;
+pub mod system;
 
-pub use system::*;
+pub use network::*;
 pub use process::*;
 pub use service::*;
-pub use network::*;
+pub use system::*;
 
 pub mod prelude {
-    pub use crate::system::{SystemInfo, CpuInfo, MemoryInfo, DiskInfo, SystemMonitor};
+    pub use crate::network::{ListeningPort, NetworkInterface, NetworkManager, NetworkTraffic};
     pub use crate::process::{ProcessInfo, ProcessManager};
     pub use crate::service::{ServiceInfo, ServiceManager, ServiceStatus};
-    pub use crate::network::{NetworkInterface, NetworkTraffic, NetworkManager, ListeningPort};
+    pub use crate::system::{CpuInfo, DiskInfo, MemoryInfo, SystemInfo, SystemMonitor};
 }

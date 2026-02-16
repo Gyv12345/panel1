@@ -138,7 +138,11 @@ impl ServicesPanel {
                     panel_core::ServiceStatus::Unknown => "?",
                 };
 
-                let enabled_text = if service.enabled { "[启用]" } else { "[禁用]" };
+                let enabled_text = if service.enabled {
+                    "[启用]"
+                } else {
+                    "[禁用]"
+                };
 
                 let _style = if i == self.selected_index {
                     Style::default().fg(Color::Yellow).bg(Color::DarkGray)
@@ -150,11 +154,13 @@ impl ServicesPanel {
                     " {} {} {} {}",
                     status_text, service.name, enabled_text, service.description
                 ))
-                .style(Style::default().fg(status_color).bg(if i == self.selected_index {
-                    Color::DarkGray
-                } else {
-                    Color::Reset
-                }))
+                .style(Style::default().fg(status_color).bg(
+                    if i == self.selected_index {
+                        Color::DarkGray
+                    } else {
+                        Color::Reset
+                    },
+                ))
             })
             .collect();
 

@@ -61,65 +61,63 @@ impl InstallWizard {
     /// 处理按键
     pub async fn handle_key(&mut self, key: KeyEvent) -> Result<()> {
         match self.current_step {
-            WizardStep::SelectService => {
-                match key.code {
-                    KeyCode::Up => {
-                        if self.list_index > 0 {
-                            self.list_index -= 1;
-                        }
+            WizardStep::SelectService => match key.code {
+                KeyCode::Up => {
+                    if self.list_index > 0 {
+                        self.list_index -= 1;
                     }
-                    KeyCode::Down => {
-                        let templates = self.templates.list();
-                        if self.list_index < templates.len().saturating_sub(1) {
-                            self.list_index += 1;
-                        }
-                    }
-                    KeyCode::Enter => {
-                        let templates = self.templates.list();
-                        if let Some(template) = templates.get(self.list_index) {
-                            self.selected_service = Some(template.id.clone());
-                            self.selected_version = Some(template.default_version.clone());
-                            self.current_step = WizardStep::SelectVersion;
-                            self.list_index = 0;
-                        }
-                    }
-                    _ => {}
                 }
-            }
-            WizardStep::SelectVersion => {
-                match key.code {
-                    KeyCode::Up => {
-                        if self.list_index > 0 {
-                            self.list_index -= 1;
-                        }
+                KeyCode::Down => {
+                    let templates = self.templates.list();
+                    if self.list_index < templates.len().saturating_sub(1) {
+                        self.list_index += 1;
                     }
-                    KeyCode::Down => {
-                        if let Some(svc_id) = &self.selected_service {
-                            if let Some(template) = self.templates.get(svc_id) {
-                                if self.list_index < template.available_versions.len().saturating_sub(1) {
-                                    self.list_index += 1;
-                                }
-                            }
-                        }
-                    }
-                    KeyCode::Enter => {
-                        if let Some(svc_id) = &self.selected_service {
-                            if let Some(template) = self.templates.get(svc_id) {
-                                if let Some(version) = template.available_versions.get(self.list_index) {
-                                    self.selected_version = Some(version.clone());
-                                    self.current_step = WizardStep::SelectMode;
-                                    self.list_index = 0;
-                                }
-                            }
-                        }
-                    }
-                    KeyCode::Esc => {
-                        self.current_step = WizardStep::SelectService;
+                }
+                KeyCode::Enter => {
+                    let templates = self.templates.list();
+                    if let Some(template) = templates.get(self.list_index) {
+                        self.selected_service = Some(template.id.clone());
+                        self.selected_version = Some(template.default_version.clone());
+                        self.current_step = WizardStep::SelectVersion;
                         self.list_index = 0;
                     }
-                    _ => {}
                 }
-            }
+                _ => {}
+            },
+            WizardStep::SelectVersion => match key.code {
+                KeyCode::Up => {
+                    if self.list_index > 0 {
+                        self.list_index -= 1;
+                    }
+                }
+                KeyCode::Down => {
+                    if let Some(svc_id) = &self.selected_service {
+                        if let Some(template) = self.templates.get(svc_id) {
+                            if self.list_index < template.available_versions.len().saturating_sub(1)
+                            {
+                                self.list_index += 1;
+                            }
+                        }
+                    }
+                }
+                KeyCode::Enter => {
+                    if let Some(svc_id) = &self.selected_service {
+                        if let Some(template) = self.templates.get(svc_id) {
+                            if let Some(version) = template.available_versions.get(self.list_index)
+                            {
+                                self.selected_version = Some(version.clone());
+                                self.current_step = WizardStep::SelectMode;
+                                self.list_index = 0;
+                            }
+                        }
+                    }
+                }
+                KeyCode::Esc => {
+                    self.current_step = WizardStep::SelectService;
+                    self.list_index = 0;
+                }
+                _ => {}
+            },
             WizardStep::SelectMode => {
                 match key.code {
                     KeyCode::Up => {
@@ -149,25 +147,23 @@ impl InstallWizard {
                     _ => {}
                 }
             }
-            WizardStep::Configure => {
-                match key.code {
-                    KeyCode::Char(c) => {
-                        if c.is_ascii_digit() {
-                            self.config_port.push(c);
-                        }
+            WizardStep::Configure => match key.code {
+                KeyCode::Char(c) => {
+                    if c.is_ascii_digit() {
+                        self.config_port.push(c);
                     }
-                    KeyCode::Backspace => {
-                        self.config_port.pop();
-                    }
-                    KeyCode::Enter => {
-                        self.current_step = WizardStep::Confirm;
-                    }
-                    KeyCode::Esc => {
-                        self.current_step = WizardStep::SelectMode;
-                    }
-                    _ => {}
                 }
-            }
+                KeyCode::Backspace => {
+                    self.config_port.pop();
+                }
+                KeyCode::Enter => {
+                    self.current_step = WizardStep::Confirm;
+                }
+                KeyCode::Esc => {
+                    self.current_step = WizardStep::SelectMode;
+                }
+                _ => {}
+            },
             WizardStep::Confirm => {
                 match key.code {
                     KeyCode::Enter => {
@@ -195,7 +191,6 @@ impl InstallWizard {
                     self.reset();
                 }
             }
-            _ => {}
         }
         Ok(())
     }
@@ -281,9 +276,11 @@ impl InstallWizard {
             .title(" 步骤 3/5: 选择安装模式 ")
             .borders(Borders::ALL);
 
-        let modes = [("Systemd", "使用系统包管理器安装，由 systemd 管理"),
+        let modes = [
+            ("Systemd", "使用系统包管理器安装，由 systemd 管理"),
             ("Panel1", "由 Panel1 下载和管理二进制文件"),
-            ("Docker", "使用 Docker 容器运行")];
+            ("Docker", "使用 Docker 容器运行"),
+        ];
 
         let items: Vec<ListItem> = modes
             .iter()
@@ -321,7 +318,11 @@ impl InstallWizard {
             self.selected_service.as_deref().unwrap_or("unknown"),
             self.selected_version.as_deref().unwrap_or("latest"),
             mode_name,
-            if self.config_port.is_empty() { "_" } else { &self.config_port }
+            if self.config_port.is_empty() {
+                "_"
+            } else {
+                &self.config_port
+            }
         );
 
         let paragraph = Paragraph::new(text).block(block);

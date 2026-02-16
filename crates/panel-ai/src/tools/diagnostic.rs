@@ -2,8 +2,8 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::cell::RefCell;
+use std::collections::HashMap;
 
 use super::shell::ShellTool;
 
@@ -188,7 +188,12 @@ impl DiagnosticTool {
 
         let mut result = format!(
             "主机名: {}\n操作系统: {} {}\n内核版本: {}\n架构: {}\n运行时间: {} 秒\n\n",
-            info.hostname, info.os_name, info.os_version, info.kernel_version, info.arch, info.uptime
+            info.hostname,
+            info.os_name,
+            info.os_version,
+            info.kernel_version,
+            info.arch,
+            info.uptime
         );
 
         result.push_str(&format!(
@@ -233,7 +238,9 @@ impl DiagnosticTool {
         drop(monitor);
 
         // 获取负载
-        let load_avg = self.shell.execute("cat /proc/loadavg | awk '{print $1,$2,$3}'")
+        let load_avg = self
+            .shell
+            .execute("cat /proc/loadavg | awk '{print $1,$2,$3}'")
             .map(|r| r.stdout.trim().to_string())
             .unwrap_or_else(|_| "N/A".to_string());
 
@@ -265,14 +272,17 @@ impl DiagnosticTool {
                 swap_total_mb: mem_info.swap_total / 1024 / 1024,
                 swap_used_mb: mem_info.swap_used / 1024 / 1024,
             },
-            disk: disk_info.iter().map(|d| DiskDiagnosis {
-                mount_point: d.mount_point.clone(),
-                fs_type: d.fs_type.clone(),
-                total_gb: d.total as f64 / 1024.0 / 1024.0 / 1024.0,
-                used_gb: d.used as f64 / 1024.0 / 1024.0 / 1024.0,
-                available_gb: d.available as f64 / 1024.0 / 1024.0 / 1024.0,
-                usage_percent: d.usage,
-            }).collect(),
+            disk: disk_info
+                .iter()
+                .map(|d| DiskDiagnosis {
+                    mount_point: d.mount_point.clone(),
+                    fs_type: d.fs_type.clone(),
+                    total_gb: d.total as f64 / 1024.0 / 1024.0 / 1024.0,
+                    used_gb: d.used as f64 / 1024.0 / 1024.0 / 1024.0,
+                    available_gb: d.available as f64 / 1024.0 / 1024.0 / 1024.0,
+                    usage_percent: d.usage,
+                })
+                .collect(),
             network: NetworkDiagnosis {
                 interfaces: vec!["eth0".to_string()], // TODO: 实际获取
                 listening_ports,
@@ -295,7 +305,7 @@ impl DiagnosticTool {
         Ok(PerformanceInfo {
             cpu: CpuPerfInfo {
                 usage_percent: cpu.usage,
-                user_percent: cpu.usage * 0.6, // 估算
+                user_percent: cpu.usage * 0.6,   // 估算
                 system_percent: cpu.usage * 0.3, // 估算
                 iowait_percent: cpu.usage * 0.1, // 估算
             },
@@ -325,14 +335,17 @@ impl DiagnosticTool {
             ssh_config,
             firewall_status,
             open_ports,
-            failed_logins: 0, // TODO: 从日志解析
+            failed_logins: 0,   // TODO: 从日志解析
             sudo_users: vec![], // TODO: 实际获取
         })
     }
 
     fn get_listening_ports(&self) -> Result<Vec<u16>> {
-        let result = self.shell.execute("ss -tln | awk 'NR>1 {print $4}' | cut -d: -f2")?;
-        let ports: Vec<u16> = result.stdout
+        let result = self
+            .shell
+            .execute("ss -tln | awk 'NR>1 {print $4}' | cut -d: -f2")?;
+        let ports: Vec<u16> = result
+            .stdout
             .lines()
             .filter_map(|l| l.trim().parse().ok())
             .collect();
@@ -343,23 +356,35 @@ impl DiagnosticTool {
         let manager = panel_core::ServiceManager::new();
         let services = manager.get_services()?;
 
-        Ok(services.into_iter().take(20).map(|s| ServiceDiagnosis {
-            name: s.name,
-            status: format!("{:?}", s.status),
-            enabled: s.enabled,
-        }).collect())
+        Ok(services
+            .into_iter()
+            .take(20)
+            .map(|s| ServiceDiagnosis {
+                name: s.name,
+                status: format!("{:?}", s.status),
+                enabled: s.enabled,
+            })
+            .collect())
     }
 
     fn get_ssh_config(&self) -> Result<SshConfig> {
-        let permit_root = self.shell.execute("grep -E '^PermitRootLogin' /etc/ssh/sshd_config 2>/dev/null | head -1")
+        let permit_root = self
+            .shell
+            .execute("grep -E '^PermitRootLogin' /etc/ssh/sshd_config 2>/dev/null | head -1")
             .map(|r| r.stdout.contains("yes"))
             .unwrap_or(false);
 
-        let password_auth = self.shell.execute("grep -E '^PasswordAuthentication' /etc/ssh/sshd_config 2>/dev/null | head -1")
+        let password_auth = self
+            .shell
+            .execute("grep -E '^PasswordAuthentication' /etc/ssh/sshd_config 2>/dev/null | head -1")
             .map(|r| r.stdout.contains("yes"))
             .unwrap_or(true);
 
-        let port = self.shell.execute("grep -E '^Port' /etc/ssh/sshd_config 2>/dev/null | head -1 | awk '{print $2}'")
+        let port = self
+            .shell
+            .execute(
+                "grep -E '^Port' /etc/ssh/sshd_config 2>/dev/null | head -1 | awk '{print $2}'",
+            )
             .map(|r| r.stdout.trim().parse().unwrap_or(22))
             .unwrap_or(22);
 
@@ -387,16 +412,20 @@ impl DiagnosticTool {
     }
 
     fn get_open_ports(&self) -> Result<Vec<PortInfo>> {
-        let result = self.shell.execute("ss -tlnp 2>/dev/null | awk 'NR>1 {print $4, $6}'")?;
+        let result = self
+            .shell
+            .execute("ss -tlnp 2>/dev/null | awk 'NR>1 {print $4, $6}'")?;
 
-        let ports: Vec<PortInfo> = result.stdout
+        let ports: Vec<PortInfo> = result
+            .stdout
             .lines()
             .filter_map(|line| {
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 2 {
                     let port_str = parts[0].split(':').next_back()?;
                     let port: u16 = port_str.parse().ok()?;
-                    let service = parts.get(1)
+                    let service = parts
+                        .get(1)
                         .and_then(|s| s.split(',').next())
                         .unwrap_or("unknown")
                         .to_string();

@@ -1,8 +1,8 @@
 //! 进程管理模块
 
 use serde::{Deserialize, Serialize};
-use sysinfo::{Pid, System};
 use std::collections::HashMap;
+use sysinfo::{Pid, System};
 
 /// 进程信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,7 +49,8 @@ impl ProcessManager {
         let boot_time = std::fs::read_to_string("/proc/stat")
             .ok()
             .and_then(|content| {
-                content.lines()
+                content
+                    .lines()
                     .find(|line| line.starts_with("btime "))
                     .and_then(|line| line.split_whitespace().nth(1))
                     .and_then(|s| s.parse().ok())
@@ -70,12 +71,13 @@ impl ProcessManager {
         self.sys.refresh_processes_specifics(
             ProcessesToUpdate::All,
             true,
-            sysinfo::ProcessRefreshKind::everything()
+            sysinfo::ProcessRefreshKind::everything(),
         );
 
         let boot_time = self.boot_time;
 
-        self.sys.processes()
+        self.sys
+            .processes()
             .iter()
             .map(|(pid, process)| self.process_to_info(*pid, process, boot_time))
             .collect()
@@ -87,12 +89,13 @@ impl ProcessManager {
         self.sys.refresh_processes_specifics(
             ProcessesToUpdate::All,
             true,
-            sysinfo::ProcessRefreshKind::everything()
+            sysinfo::ProcessRefreshKind::everything(),
         );
 
         let boot_time = self.boot_time;
 
-        self.sys.process(Pid::from_u32(pid))
+        self.sys
+            .process(Pid::from_u32(pid))
             .map(|p| self.process_to_info(Pid::from_u32(pid), p, boot_time))
     }
 
@@ -102,12 +105,13 @@ impl ProcessManager {
         self.sys.refresh_processes_specifics(
             ProcessesToUpdate::All,
             true,
-            sysinfo::ProcessRefreshKind::everything()
+            sysinfo::ProcessRefreshKind::everything(),
         );
 
         let boot_time = self.boot_time;
 
-        self.sys.processes()
+        self.sys
+            .processes()
             .iter()
             .filter(|(_, p)| p.name().to_string_lossy().contains(name))
             .map(|(pid, process)| self.process_to_info(*pid, process, boot_time))
@@ -129,7 +133,7 @@ impl ProcessManager {
         self.sys.refresh_processes_specifics(
             ProcessesToUpdate::All,
             true,
-            sysinfo::ProcessRefreshKind::everything()
+            sysinfo::ProcessRefreshKind::everything(),
         );
 
         let mut tree: HashMap<u32, Vec<u32>> = HashMap::new();
@@ -148,17 +152,26 @@ impl ProcessManager {
             pid: pid.as_u32(),
             ppid: process.parent().map(|p| p.as_u32()).unwrap_or(0),
             name: process.name().to_string_lossy().to_string(),
-            command: process.cmd().iter()
+            command: process
+                .cmd()
+                .iter()
                 .map(|s| s.to_string_lossy().to_string())
                 .collect::<Vec<_>>()
                 .join(" "),
-            exe: process.exe().map(|p| p.to_string_lossy().to_string()).unwrap_or_default(),
-            cwd: process.cwd().map(|p| p.to_string_lossy().to_string()).unwrap_or_default(),
+            exe: process
+                .exe()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            cwd: process
+                .cwd()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default(),
             status: format!("{:?}", process.status()),
             cpu_usage: process.cpu_usage(),
             memory: process.memory(),
             virtual_memory: process.virtual_memory(),
-            user: process.user_id()
+            user: process
+                .user_id()
                 .map(|uid| format!("{:?}", uid))
                 .unwrap_or_else(|| "unknown".to_string()),
             start_time: process.start_time(),

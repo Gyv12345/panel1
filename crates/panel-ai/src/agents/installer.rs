@@ -4,7 +4,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::llm::{LlmProvider, LlmMessage};
+use crate::llm::{LlmMessage, LlmProvider};
 use crate::tools::{DiagnosticTool, ToolContext};
 
 /// Agent 响应
@@ -108,16 +108,17 @@ impl InstallerAgent {
         for line in content.lines() {
             let trimmed = line.trim();
             // 检测代码块中的命令
-            if trimmed.starts_with("sudo ") ||
-               trimmed.starts_with("apt ") ||
-               trimmed.starts_with("yum ") ||
-               trimmed.starts_with("dnf ") ||
-               trimmed.starts_with("systemctl ") ||
-               trimmed.starts_with("docker ") ||
-               trimmed.starts_with("curl ") ||
-               trimmed.starts_with("wget ") ||
-               trimmed.starts_with("chmod ") ||
-               trimmed.starts_with("mkdir ") {
+            if trimmed.starts_with("sudo ")
+                || trimmed.starts_with("apt ")
+                || trimmed.starts_with("yum ")
+                || trimmed.starts_with("dnf ")
+                || trimmed.starts_with("systemctl ")
+                || trimmed.starts_with("docker ")
+                || trimmed.starts_with("curl ")
+                || trimmed.starts_with("wget ")
+                || trimmed.starts_with("chmod ")
+                || trimmed.starts_with("mkdir ")
+            {
                 commands.push(trimmed.to_string());
             }
         }

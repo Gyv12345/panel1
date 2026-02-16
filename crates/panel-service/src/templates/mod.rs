@@ -56,7 +56,8 @@ impl TemplateRegistry {
             default_version: "7.2".to_string(),
             available_versions: vec!["7.2".to_string(), "7.0".to_string(), "6.2".to_string()],
             default_port: 6379,
-            download_url_template: "https://github.com/redis/redis/archive/refs/tags/{version}.tar.gz".to_string(),
+            download_url_template:
+                "https://github.com/redis/redis/archive/refs/tags/{version}.tar.gz".to_string(),
             config_template: Some(include_str!("redis.conf.template").to_string()),
             env_template: None,
             start_args: Some(vec!["--port".to_string(), "{port}".to_string()]),
@@ -90,7 +91,9 @@ impl TemplateRegistry {
             default_version: "16".to_string(),
             available_versions: vec!["16".to_string(), "15".to_string(), "14".to_string()],
             default_port: 5432,
-            download_url_template: "https://ftp.postgresql.org/pub/source/v{version}/postgresql-{version}.tar.gz".to_string(),
+            download_url_template:
+                "https://ftp.postgresql.org/pub/source/v{version}/postgresql-{version}.tar.gz"
+                    .to_string(),
             config_template: None,
             env_template: None,
             start_args: None,

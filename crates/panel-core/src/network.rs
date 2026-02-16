@@ -61,17 +61,16 @@ impl NetworkManager {
 
         let networks = Networks::new_with_refreshed_list();
 
-        networks.iter()
-            .map(|(name, data)| {
-                NetworkInterface {
-                    name: name.to_string(),
-                    mac: data.mac_address().to_string(),
-                    ips: Vec::new(),
-                    received: data.total_received(),
-                    transmitted: data.total_transmitted(),
-                    packets_received: data.total_packets_received(),
-                    packets_transmitted: data.total_packets_transmitted(),
-                }
+        networks
+            .iter()
+            .map(|(name, data)| NetworkInterface {
+                name: name.to_string(),
+                mac: data.mac_address().to_string(),
+                ips: Vec::new(),
+                received: data.total_received(),
+                transmitted: data.total_transmitted(),
+                packets_received: data.total_packets_received(),
+                packets_transmitted: data.total_packets_transmitted(),
             })
             .collect()
     }
@@ -88,17 +87,20 @@ impl NetworkManager {
             let rx = data.total_received();
             let tx = data.total_transmitted();
 
-            let (rx_rate, tx_rate) = if let Some(&(prev_rx, prev_tx, prev_time)) = self.prev_stats.get(name.as_str()) {
-                let elapsed = now.duration_since(prev_time).as_secs_f64();
-                if elapsed > 0.0 {
-                    ((rx.saturating_sub(prev_rx) as f64 / elapsed),
-                     (tx.saturating_sub(prev_tx) as f64 / elapsed))
+            let (rx_rate, tx_rate) =
+                if let Some(&(prev_rx, prev_tx, prev_time)) = self.prev_stats.get(name.as_str()) {
+                    let elapsed = now.duration_since(prev_time).as_secs_f64();
+                    if elapsed > 0.0 {
+                        (
+                            (rx.saturating_sub(prev_rx) as f64 / elapsed),
+                            (tx.saturating_sub(prev_tx) as f64 / elapsed),
+                        )
+                    } else {
+                        (0.0, 0.0)
+                    }
                 } else {
                     (0.0, 0.0)
-                }
-            } else {
-                (0.0, 0.0)
-            };
+                };
 
             traffic.push(NetworkTraffic {
                 interface: name.to_string(),
@@ -123,7 +125,8 @@ impl NetworkManager {
         match output {
             Ok(output) => {
                 let stdout = String::from_utf8_lossy(&output.stdout);
-                let ports: Vec<ListeningPort> = stdout.lines()
+                let ports: Vec<ListeningPort> = stdout
+                    .lines()
                     .filter_map(|line| {
                         let parts: Vec<&str> = line.split_whitespace().collect();
                         if parts.len() >= 4 {
@@ -158,7 +161,8 @@ impl NetworkManager {
                 match output {
                     Ok(output) => {
                         let stdout = String::from_utf8_lossy(&output.stdout);
-                        let ports: Vec<ListeningPort> = stdout.lines()
+                        let ports: Vec<ListeningPort> = stdout
+                            .lines()
                             .filter_map(|line| {
                                 let parts: Vec<&str> = line.split_whitespace().collect();
                                 if parts.len() >= 4 {

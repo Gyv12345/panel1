@@ -1,8 +1,8 @@
 //! LLM Provider trait 和通用数据结构
 
+use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use anyhow::Result;
 
 /// LLM 消息角色
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

@@ -1,10 +1,10 @@
 //! 二进制后端 - 下载和管理 Panel1 托管的二进制服务
 
-use anyhow::{Result, Context, bail};
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
@@ -105,7 +105,12 @@ impl BinaryBackend {
     }
 
     /// 安装服务
-    pub async fn install(&mut self, name: &str, service_type: &str, version: &str) -> Result<ManagedService> {
+    pub async fn install(
+        &mut self,
+        name: &str,
+        service_type: &str,
+        version: &str,
+    ) -> Result<ManagedService> {
         let service_dir = self.data_dir.join(name);
         let binary_path = service_dir.join(format!("{}-{}", service_type, version));
 
@@ -117,7 +122,10 @@ impl BinaryBackend {
         // 检查二进制是否已存在
         if !binary_path.exists() {
             // TODO: 下载二进制
-            info!("Would download {} version {} to {:?}", service_type, version, binary_path);
+            info!(
+                "Would download {} version {} to {:?}",
+                service_type, version, binary_path
+            );
         }
 
         Ok(ManagedService {
@@ -136,7 +144,9 @@ impl BinaryBackend {
 
     /// 启动服务
     pub async fn start(&self, service: &ManagedService) -> Result<()> {
-        let binary_path = service.binary_path.as_ref()
+        let binary_path = service
+            .binary_path
+            .as_ref()
             .context("Binary path not set")?;
 
         if !Path::new(binary_path).exists() {

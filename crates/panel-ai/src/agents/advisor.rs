@@ -3,9 +3,9 @@
 use anyhow::Result;
 use std::sync::Arc;
 
-use crate::llm::{LlmProvider, LlmMessage};
-use crate::tools::{DiagnosticTool, ToolContext};
 use crate::agents::installer::AgentResponse;
+use crate::llm::{LlmMessage, LlmProvider};
+use crate::tools::{DiagnosticTool, ToolContext};
 
 /// 运维顾问 Agent
 pub struct AdvisorAgent {

@@ -6,19 +6,15 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::{
-    backend::CrosstermBackend,
-    Terminal,
-    style::Modifier,
-};
+use ratatui::{backend::CrosstermBackend, style::Modifier, Terminal};
+use std::cell::RefCell;
 use std::io;
 use std::time::Duration;
-use std::cell::RefCell;
 
-use crate::ui::dashboard::Dashboard;
-use crate::ui::wizard::InstallWizard;
-use crate::ui::services::ServicesPanel;
 use crate::ui::ai_chat::AiChatPanel;
+use crate::ui::dashboard::Dashboard;
+use crate::ui::services::ServicesPanel;
+use crate::ui::wizard::InstallWizard;
 
 /// 应用模式
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -140,8 +136,8 @@ impl App {
                 if let Event::Key(key) = event::read()? {
                     match (key.modifiers, key.code) {
                         // 全局快捷键
-                        (KeyModifiers::CONTROL, KeyCode::Char('c')) |
-                        (KeyModifiers::NONE, KeyCode::Char('q')) => {
+                        (KeyModifiers::CONTROL, KeyCode::Char('c'))
+                        | (KeyModifiers::NONE, KeyCode::Char('q')) => {
                             self.state.should_quit = true;
                         }
                         (KeyModifiers::NONE, KeyCode::Char('?')) => {
@@ -180,7 +176,9 @@ impl App {
                 self.dashboard.handle_key(key);
             }
             AppMode::Services => {
-                self.services_panel.borrow_mut().handle_key(key, &self.service_manager)?;
+                self.services_panel
+                    .borrow_mut()
+                    .handle_key(key, &self.service_manager)?;
             }
             AppMode::Wizard => {
                 self.wizard.borrow_mut().handle_key(key).await?;
@@ -203,9 +201,9 @@ impl App {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),  // 标题栏
-                Constraint::Min(0),     // 主内容
-                Constraint::Length(1),  // 状态栏
+                Constraint::Length(3), // 标题栏
+                Constraint::Min(0),    // 主内容
+                Constraint::Length(1), // 状态栏
             ])
             .split(f.area());
 
@@ -218,7 +216,9 @@ impl App {
                 self.dashboard.draw(f, chunks[1], &self.monitor);
             }
             AppMode::Services => {
-                self.services_panel.borrow_mut().draw(f, chunks[1], &self.service_manager);
+                self.services_panel
+                    .borrow_mut()
+                    .draw(f, chunks[1], &self.service_manager);
             }
             AppMode::Wizard => {
                 self.wizard.borrow().draw(f, chunks[1]);
@@ -240,11 +240,15 @@ impl App {
 
     /// 绘制标题栏
     fn draw_title_bar(&self, f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
+        use ratatui::style::{Color, Style};
         use ratatui::widgets::{Block, Borders, Paragraph};
-        use ratatui::style::{Style, Color};
 
         let title = Paragraph::new(" Panel1 - Linux 服务器管理面板 ")
-            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
             .block(Block::default().borders(Borders::BOTTOM));
 
         f.render_widget(title, area);
@@ -252,8 +256,8 @@ impl App {
 
     /// 绘制状态栏
     fn draw_status_bar(&self, f: &mut ratatui::Frame, area: ratatui::layout::Rect) {
+        use ratatui::style::{Color, Style};
         use ratatui::widgets::Paragraph;
-        use ratatui::style::{Style, Color};
 
         let mode_str = match self.state.mode {
             AppMode::Dashboard => "仪表盘",
@@ -268,17 +272,16 @@ impl App {
             mode_str
         );
 
-        let paragraph = Paragraph::new(status)
-            .style(Style::default().fg(Color::White).bg(Color::DarkGray));
+        let paragraph =
+            Paragraph::new(status).style(Style::default().fg(Color::White).bg(Color::DarkGray));
 
         f.render_widget(paragraph, area);
     }
 
     /// 绘制帮助覆盖层
     fn draw_help_overlay(&self, f: &mut ratatui::Frame) {
-        use ratatui::widgets::{Block, Borders, Paragraph, Clear};
-        use ratatui::style::{Style, Color};
-        
+        use ratatui::style::{Color, Style};
+        use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 
         let area = centered_rect(60, 50, f.area());
         f.render_widget(Clear, area);
@@ -322,8 +325,7 @@ AI 对话:
 按任意键关闭帮助
 "#;
 
-        let paragraph = Paragraph::new(help_text)
-            .block(block);
+        let paragraph = Paragraph::new(help_text).block(block);
 
         f.render_widget(paragraph, area);
     }
@@ -336,7 +338,11 @@ impl Default for App {
 }
 
 /// 计算居中区域
-fn centered_rect(percent_x: u16, percent_y: u16, r: ratatui::layout::Rect) -> ratatui::layout::Rect {
+fn centered_rect(
+    percent_x: u16,
+    percent_y: u16,
+    r: ratatui::layout::Rect,
+) -> ratatui::layout::Rect {
     use ratatui::layout::{Constraint, Layout};
 
     let popup_layout = Layout::default()

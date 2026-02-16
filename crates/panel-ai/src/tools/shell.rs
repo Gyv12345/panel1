@@ -1,6 +1,6 @@
 //! Shell 命令执行工具（带白名单）
 
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
@@ -110,9 +110,7 @@ impl ShellTool {
         }
 
         // 执行命令
-        let output = Command::new(cmd_name)
-            .args(&parts[1..])
-            .output();
+        let output = Command::new(cmd_name).args(&parts[1..]).output();
 
         match output {
             Ok(output) => Ok(ShellResult {

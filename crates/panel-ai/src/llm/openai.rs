@@ -1,11 +1,11 @@
 //! OpenAI Provider 实现
 
+use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
-use anyhow::{Result, Context, bail};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use super::provider::{LlmProvider, LlmMessage, LlmResponse, LlmConfig, LlmRole};
+use super::provider::{LlmConfig, LlmMessage, LlmProvider, LlmResponse, LlmRole};
 
 /// OpenAI API 响应结构
 #[derive(Debug, Deserialize)]
@@ -86,7 +86,9 @@ impl OpenAiProvider {
     }
 
     fn get_api_url(&self) -> String {
-        self.config.base_url.as_ref()
+        self.config
+            .base_url
+            .as_ref()
             .map(|u| format!("{}/chat/completions", u.trim_end_matches('/')))
             .unwrap_or_else(|| "https://api.openai.com/v1/chat/completions".to_string())
     }
@@ -103,7 +105,10 @@ impl OpenAiProvider {
 #[async_trait]
 impl LlmProvider for OpenAiProvider {
     async fn chat(&self, messages: Vec<LlmMessage>) -> Result<LlmResponse> {
-        let api_key = self.config.api_key.as_ref()
+        let api_key = self
+            .config
+            .api_key
+            .as_ref()
             .context("OpenAI API key not set")?;
 
         let api_messages: Vec<OpenAiApiMessage> = messages
@@ -121,7 +126,8 @@ impl LlmProvider for OpenAiProvider {
             temperature: self.config.temperature,
         };
 
-        let response = self.client
+        let response = self
+            .client
             .post(self.get_api_url())
             .header("Authorization", format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
@@ -140,7 +146,8 @@ impl LlmProvider for OpenAiProvider {
             .await
             .context("Failed to parse OpenAI response")?;
 
-        let content = openai_response.choices
+        let content = openai_response
+            .choices
             .first()
             .map(|c| c.message.content.clone())
             .unwrap_or_default();

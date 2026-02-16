@@ -1,8 +1,8 @@
 //! 系统信息模块 - 获取 CPU、内存、磁盘等系统信息
 
 use serde::{Deserialize, Serialize};
-use sysinfo::System;
 use std::time::{SystemTime, UNIX_EPOCH};
+use sysinfo::System;
 
 /// 系统基本信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,7 +84,8 @@ impl SystemMonitor {
         let boot_time = std::fs::read_to_string("/proc/stat")
             .ok()
             .and_then(|content| {
-                content.lines()
+                content
+                    .lines()
                     .find(|line| line.starts_with("btime "))
                     .and_then(|line| line.split_whitespace().nth(1))
                     .and_then(|s| s.parse().ok())
@@ -122,7 +123,8 @@ impl SystemMonitor {
         self.sys.refresh_cpu_all();
 
         let cpus = self.sys.cpus();
-        let brand = cpus.first()
+        let brand = cpus
+            .first()
             .map(|c| c.brand().to_string())
             .unwrap_or_else(|| "unknown".to_string());
 
@@ -168,7 +170,8 @@ impl SystemMonitor {
 
         let disks = Disks::new_with_refreshed_list();
 
-        disks.iter()
+        disks
+            .iter()
             .map(|disk| {
                 let total = disk.total_space();
                 let available = disk.available_space();

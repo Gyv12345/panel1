@@ -1,7 +1,9 @@
 //! AI Tools 模块
 
-mod shell;
 mod diagnostic;
+mod shell;
 
-pub use shell::{ShellTool, ShellResult};
-pub use diagnostic::{DiagnosticTool, ToolContext, ToolResult, DiagnosisResult, PerformanceInfo, SecurityInfo};
+pub use diagnostic::{
+    DiagnosisResult, DiagnosticTool, PerformanceInfo, SecurityInfo, ToolContext, ToolResult,
+};
+pub use shell::{ShellResult, ShellTool};

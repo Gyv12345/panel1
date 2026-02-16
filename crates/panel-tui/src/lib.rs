@@ -6,17 +6,17 @@ pub mod app;
 pub mod ui;
 
 pub use app::{App, AppMode, AppResult};
-pub use ui::dashboard::Dashboard;
-pub use ui::wizard::InstallWizard;
-pub use ui::services::ServicesPanel;
 pub use ui::ai_chat::AiChatPanel;
+pub use ui::dashboard::Dashboard;
+pub use ui::services::ServicesPanel;
+pub use ui::wizard::InstallWizard;
 
 pub mod prelude {
     pub use crate::app::{App, AppMode, AppResult, AppState};
-    pub use crate::ui::dashboard::Dashboard;
-    pub use crate::ui::wizard::InstallWizard;
-    pub use crate::ui::services::ServicesPanel;
     pub use crate::ui::ai_chat::AiChatPanel;
+    pub use crate::ui::dashboard::Dashboard;
+    pub use crate::ui::services::ServicesPanel;
+    pub use crate::ui::wizard::InstallWizard;
 }
 
 /// 启动 TUI 应用

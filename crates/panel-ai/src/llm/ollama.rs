@@ -1,11 +1,11 @@
 //! Ollama Provider 实现（本地模型支持）
 
+use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
-use anyhow::{Result, Context, bail};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use super::provider::{LlmProvider, LlmMessage, LlmResponse, LlmConfig, LlmRole};
+use super::provider::{LlmConfig, LlmMessage, LlmProvider, LlmResponse, LlmRole};
 
 /// Ollama API 响应结构
 #[derive(Debug, Deserialize)]
@@ -59,7 +59,9 @@ pub struct OllamaProvider {
 impl OllamaProvider {
     /// 创建新的 Ollama Provider
     pub fn new(config: LlmConfig) -> Self {
-        let base_url = config.base_url.clone()
+        let base_url = config
+            .base_url
+            .clone()
             .unwrap_or_else(|| "http://localhost:11434".to_string());
 
         let client = Client::builder()
@@ -67,7 +69,11 @@ impl OllamaProvider {
             .build()
             .unwrap();
 
-        Self { client, config, base_url }
+        Self {
+            client,
+            config,
+            base_url,
+        }
     }
 
     /// 使用默认配置创建
@@ -118,7 +124,8 @@ impl LlmProvider for OllamaProvider {
             options: Some(options),
         };
 
-        let response = self.client
+        let response = self
+            .client
             .post(self.get_api_url())
             .header("Content-Type", "application/json")
             .json(&request)
@@ -149,7 +156,8 @@ impl LlmProvider for OllamaProvider {
 
     async fn is_available(&self) -> bool {
         // 检查 Ollama 服务是否运行
-        match self.client
+        match self
+            .client
             .get(format!("{}/api/tags", self.base_url))
             .send()
             .await

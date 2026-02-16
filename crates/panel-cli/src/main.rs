@@ -1,7 +1,7 @@
 //! Panel1 - Linux Server Management Panel with TUI
 
-use clap::{Parser, Subcommand};
 use anyhow::Result;
+use clap::{Parser, Subcommand};
 use std::sync::Arc;
 
 #[derive(Parser)]
@@ -114,7 +114,11 @@ async fn main() -> Result<()> {
         Some(Commands::Ai { action }) => {
             handle_ai_command(action).await?;
         }
-        Some(Commands::Install { name, mode, version }) => {
+        Some(Commands::Install {
+            name,
+            mode,
+            version,
+        }) => {
             handle_install_command(&name, &mode, version.as_deref()).await?;
         }
     }
@@ -138,14 +142,17 @@ fn show_system_status() -> Result<()> {
     println!("CPU: {} ({} cores)", cpu.brand, cpu.cores);
     println!("CPU Usage: {:.1}%", cpu.usage);
     println!();
-    println!("Memory: {:.1} GB / {:.1} GB",
+    println!(
+        "Memory: {:.1} GB / {:.1} GB",
         memory.used as f64 / 1024.0 / 1024.0 / 1024.0,
-        memory.total as f64 / 1024.0 / 1024.0 / 1024.0);
+        memory.total as f64 / 1024.0 / 1024.0 / 1024.0
+    );
     println!("Memory Usage: {:.1}%", memory.usage);
     println!();
     println!("=== Disk Usage ===");
     for disk in disks {
-        println!("{} ({}) {:.1} GB / {:.1} GB ({:.1}%)",
+        println!(
+            "{} ({}) {:.1} GB / {:.1} GB ({:.1}%)",
             disk.mount_point,
             disk.fs_type,
             disk.used as f64 / 1024.0 / 1024.0 / 1024.0,
@@ -160,41 +167,34 @@ fn show_system_status() -> Result<()> {
 fn handle_service_command(action: ServiceCommands) -> Result<()> {
     let manager = panel_core::ServiceManager::new();
     match action {
-        ServiceCommands::List => {
-            match manager.get_services() {
-                Ok(services) => {
-                    println!("{:<40} {:<10} {:<10}", "NAME", "STATUS", "ENABLED");
-                    for service in services {
-                        println!("{:<40} {:<10} {:<10}",
-                            service.name,
-                            format!("{:?}", service.status),
-                            service.enabled
-                        );
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Error listing services: {}", e);
+        ServiceCommands::List => match manager.get_services() {
+            Ok(services) => {
+                println!("{:<40} {:<10} {:<10}", "NAME", "STATUS", "ENABLED");
+                for service in services {
+                    println!(
+                        "{:<40} {:<10} {:<10}",
+                        service.name,
+                        format!("{:?}", service.status),
+                        service.enabled
+                    );
                 }
             }
-        }
-        ServiceCommands::Start { name } => {
-            match manager.start(&name) {
-                Ok(()) => println!("Service {} started", name),
-                Err(e) => eprintln!("Error starting service: {}", e),
+            Err(e) => {
+                eprintln!("Error listing services: {}", e);
             }
-        }
-        ServiceCommands::Stop { name } => {
-            match manager.stop(&name) {
-                Ok(()) => println!("Service {} stopped", name),
-                Err(e) => eprintln!("Error stopping service: {}", e),
-            }
-        }
-        ServiceCommands::Restart { name } => {
-            match manager.restart(&name) {
-                Ok(()) => println!("Service {} restarted", name),
-                Err(e) => eprintln!("Error restarting service: {}", e),
-            }
-        }
+        },
+        ServiceCommands::Start { name } => match manager.start(&name) {
+            Ok(()) => println!("Service {} started", name),
+            Err(e) => eprintln!("Error starting service: {}", e),
+        },
+        ServiceCommands::Stop { name } => match manager.stop(&name) {
+            Ok(()) => println!("Service {} stopped", name),
+            Err(e) => eprintln!("Error stopping service: {}", e),
+        },
+        ServiceCommands::Restart { name } => match manager.restart(&name) {
+            Ok(()) => println!("Service {} restarted", name),
+            Err(e) => eprintln!("Error restarting service: {}", e),
+        },
     }
     Ok(())
 }
@@ -278,13 +278,17 @@ async fn handle_install_command(name: &str, mode: &str, version: Option<&str>) -
     let manager = panel_service::ServiceManager::new();
     let default_version = "latest";
 
-    println!("Installing {} (mode: {}, version: {})...",
+    println!(
+        "Installing {} (mode: {}, version: {})...",
         name,
         mode,
         version.unwrap_or(default_version)
     );
 
-    match manager.install_service(name, name, service_mode, version.unwrap_or(default_version)).await {
+    match manager
+        .install_service(name, name, service_mode, version.unwrap_or(default_version))
+        .await
+    {
         Ok(service) => {
             println!("Service installed successfully!");
             println!("  Name: {}", service.name);
