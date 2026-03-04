@@ -1,7 +1,8 @@
 //! systemd 服务管理模块
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
+use std::io::ErrorKind;
 use std::process::Command;
 
 /// 服务状态
@@ -46,18 +47,37 @@ impl ServiceManager {
         }
     }
 
+    fn execute_systemctl(&self, args: &[&str], action: &str) -> Result<std::process::Output> {
+        Command::new(&self.systemctl_path)
+            .args(args)
+            .output()
+            .map_err(|error| {
+                if error.kind() == ErrorKind::NotFound {
+                    if cfg!(target_os = "linux") {
+                        anyhow!(
+                            "systemctl command not found. Install systemd or ensure `systemctl` is in PATH."
+                        )
+                    } else {
+                        anyhow!("systemctl is unavailable on this OS. Service commands require Linux with systemd.")
+                    }
+                } else {
+                    anyhow!("{action}: {error}")
+                }
+            })
+    }
+
     /// 获取所有服务列表
     pub fn get_services(&self) -> Result<Vec<ServiceInfo>> {
-        let output = Command::new(&self.systemctl_path)
-            .args([
+        let output = self.execute_systemctl(
+            &[
                 "list-units",
                 "--type=service",
                 "--all",
                 "--no-pager",
                 "--no-legend",
-            ])
-            .output()
-            .context("Failed to execute systemctl")?;
+            ],
+            "Failed to execute systemctl",
+        )?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let mut services = Vec::new();
@@ -90,10 +110,10 @@ impl ServiceManager {
 
     /// 获取指定服务信息
     pub fn get_service(&self, name: &str) -> Result<ServiceInfo> {
-        let output = Command::new(&self.systemctl_path)
-            .args(["show", name, "--no-pager"])
-            .output()
-            .context("Failed to execute systemctl show")?;
+        let output = self.execute_systemctl(
+            &["show", name, "--no-pager"],
+            "Failed to execute systemctl show",
+        )?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let mut info = ServiceInfo {
@@ -130,10 +150,7 @@ impl ServiceManager {
 
     /// 启动服务
     pub fn start(&self, name: &str) -> Result<()> {
-        let output = Command::new(&self.systemctl_path)
-            .args(["start", name])
-            .output()
-            .context("Failed to start service")?;
+        let output = self.execute_systemctl(&["start", name], "Failed to start service")?;
 
         if !output.status.success() {
             anyhow::bail!(
@@ -147,10 +164,7 @@ impl ServiceManager {
 
     /// 停止服务
     pub fn stop(&self, name: &str) -> Result<()> {
-        let output = Command::new(&self.systemctl_path)
-            .args(["stop", name])
-            .output()
-            .context("Failed to stop service")?;
+        let output = self.execute_systemctl(&["stop", name], "Failed to stop service")?;
 
         if !output.status.success() {
             anyhow::bail!(
@@ -164,10 +178,7 @@ impl ServiceManager {
 
     /// 重启服务
     pub fn restart(&self, name: &str) -> Result<()> {
-        let output = Command::new(&self.systemctl_path)
-            .args(["restart", name])
-            .output()
-            .context("Failed to restart service")?;
+        let output = self.execute_systemctl(&["restart", name], "Failed to restart service")?;
 
         if !output.status.success() {
             anyhow::bail!(
@@ -181,10 +192,7 @@ impl ServiceManager {
 
     /// 重新加载服务配置
     pub fn reload(&self, name: &str) -> Result<()> {
-        let output = Command::new(&self.systemctl_path)
-            .args(["reload", name])
-            .output()
-            .context("Failed to reload service")?;
+        let output = self.execute_systemctl(&["reload", name], "Failed to reload service")?;
 
         if !output.status.success() {
             anyhow::bail!(
@@ -198,10 +206,7 @@ impl ServiceManager {
 
     /// 启用开机启动
     pub fn enable(&self, name: &str) -> Result<()> {
-        let output = Command::new(&self.systemctl_path)
-            .args(["enable", name])
-            .output()
-            .context("Failed to enable service")?;
+        let output = self.execute_systemctl(&["enable", name], "Failed to enable service")?;
 
         if !output.status.success() {
             anyhow::bail!(
@@ -215,10 +220,7 @@ impl ServiceManager {
 
     /// 禁用开机启动
     pub fn disable(&self, name: &str) -> Result<()> {
-        let output = Command::new(&self.systemctl_path)
-            .args(["disable", name])
-            .output()
-            .context("Failed to disable service")?;
+        let output = self.execute_systemctl(&["disable", name], "Failed to disable service")?;
 
         if !output.status.success() {
             anyhow::bail!(

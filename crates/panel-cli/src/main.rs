@@ -1,6 +1,6 @@
 //! Panel1 - Linux Server Management Panel with TUI
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use std::sync::Arc;
 
@@ -15,114 +15,43 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Start TUI interface (default)
-    Tui {
-        /// Start directly in wizard mode
-        #[arg(long)]
-        wizard: bool,
-        /// Start directly in AI chat mode
-        #[arg(long)]
-        chat: bool,
-    },
+    /// Start simplified TUI interface (default)
+    Tui,
     /// Show system status
     Status,
-    /// Manage system services
-    Service {
-        #[command(subcommand)]
-        action: ServiceCommands,
-    },
-    /// AI-powered features
-    Ai {
-        #[command(subcommand)]
-        action: AiCommands,
-    },
-    /// Install and manage services
+    /// Install a tool service from URL (agent mode)
     Install {
-        /// Service name (redis, elasticsearch, nginx, etc.)
-        name: String,
-        /// Installation mode (systemd, panel1, docker)
-        #[arg(short, long, default_value = "panel1")]
-        mode: String,
-        /// Version to install
+        /// Download URL for binary/archive
+        url: String,
+        /// Optional service name override
         #[arg(short, long)]
-        version: Option<String>,
-    },
-}
-
-#[derive(Subcommand)]
-enum ServiceCommands {
-    /// List all services
-    List,
-    /// Start a service
-    Start {
-        /// Service name
-        name: String,
-    },
-    /// Stop a service
-    Stop {
-        /// Service name
-        name: String,
-    },
-    /// Restart a service
-    Restart {
-        /// Service name
-        name: String,
-    },
-}
-
-#[derive(Subcommand)]
-enum AiCommands {
-    /// Get installation advice for a service
-    Install {
-        /// Service name
-        name: String,
-    },
-    /// Run system diagnostics
-    Diagnose,
-    /// Get performance optimization advice
-    Optimize,
-    /// Run security check
-    Security,
-    /// Ask a question
-    Ask {
-        /// The question to ask
-        #[arg(trailing_var_arg = true)]
-        question: Vec<String>,
+        name: Option<String>,
+        /// Show detailed install logs
+        #[arg(short, long)]
+        verbose: bool,
     },
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // 启用详细日志
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("warn"));
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
+        .with_env_filter(env_filter)
+        .with_target(false)
         .init();
 
     let cli = Cli::parse();
 
     match cli.command {
-        None => {
-            // 默认启动 TUI
-            handle_tui_command(false, false).await?;
+        None | Some(Commands::Tui) => {
+            handle_tui_command().await?;
         }
         Some(Commands::Status) => {
             show_system_status()?;
         }
-        Some(Commands::Service { action }) => {
-            handle_service_command(action)?;
-        }
-        Some(Commands::Tui { wizard, chat }) => {
-            handle_tui_command(wizard, chat).await?;
-        }
-        Some(Commands::Ai { action }) => {
-            handle_ai_command(action).await?;
-        }
-        Some(Commands::Install {
-            name,
-            mode,
-            version,
-        }) => {
-            handle_install_command(&name, &mode, version.as_deref()).await?;
+        Some(Commands::Install { url, name, verbose }) => {
+            handle_install_command(&url, name.as_deref(), verbose).await?;
         }
     }
 
@@ -167,151 +96,41 @@ fn show_system_status() -> Result<()> {
     Ok(())
 }
 
-fn handle_service_command(action: ServiceCommands) -> Result<()> {
-    let manager = panel_core::ServiceManager::new();
-    match action {
-        ServiceCommands::List => match manager.get_services() {
-            Ok(services) => {
-                println!("{:<40} {:<10} {:<10}", "NAME", "STATUS", "ENABLED");
-                for service in services {
-                    println!(
-                        "{:<40} {:<10} {:<10}",
-                        service.name,
-                        format!("{:?}", service.status),
-                        service.enabled
-                    );
-                }
-            }
-            Err(e) => {
-                eprintln!("Error listing services: {}", e);
-            }
-        },
-        ServiceCommands::Start { name } => match manager.start(&name) {
-            Ok(()) => println!("Service {} started", name),
-            Err(e) => eprintln!("Error starting service: {}", e),
-        },
-        ServiceCommands::Stop { name } => match manager.stop(&name) {
-            Ok(()) => println!("Service {} stopped", name),
-            Err(e) => eprintln!("Error stopping service: {}", e),
-        },
-        ServiceCommands::Restart { name } => match manager.restart(&name) {
-            Ok(()) => println!("Service {} restarted", name),
-            Err(e) => eprintln!("Error restarting service: {}", e),
-        },
-    }
-    Ok(())
+async fn handle_tui_command() -> Result<()> {
+    panel_tui::run_tui().await
 }
 
-async fn handle_tui_command(wizard: bool, chat: bool) -> Result<()> {
-    if wizard {
-        println!("Starting Panel1 TUI in wizard mode...");
-        panel_tui::run_wizard().await?;
-    } else if chat {
-        println!("Starting Panel1 TUI in AI chat mode...");
-        panel_tui::run_chat().await?;
+async fn handle_install_command(
+    url: &str,
+    preferred_name: Option<&str>,
+    verbose: bool,
+) -> Result<()> {
+    let provider: Arc<dyn panel_ai::LlmProvider> = Arc::new(panel_ai::ClaudeProvider::new());
+    let installer = panel_ai::InstallerAgent::new(provider);
+
+    println!("Installing from URL...");
+
+    let report = installer.install_from_url(url, preferred_name).await?;
+
+    if verbose {
+        for line in &report.logs {
+            println!("- {}", line);
+        }
+    }
+
+    if report.success {
+        println!("Install finished successfully.");
+        if let Some(name) = report.service_name {
+            println!("Service: {}", name);
+        }
+        if let Some(path) = report.binary_path {
+            println!("Binary: {}", path);
+        }
+        Ok(())
     } else {
-        println!("Starting Panel1 TUI...");
-        panel_tui::run_tui().await?;
+        bail!(
+            "Install failed: {}",
+            report.error.unwrap_or_else(|| "unknown error".to_string())
+        )
     }
-    Ok(())
-}
-
-async fn handle_ai_command(action: AiCommands) -> Result<()> {
-    // 初始化 AI Provider
-    let provider = create_ai_provider()?;
-
-    match action {
-        AiCommands::Install { name } => {
-            let agent = panel_ai::InstallerAgent::new(provider);
-            println!("Getting installation advice for {}...\n", name);
-            let response = agent.get_install_advice(&name).await?;
-            println!("{}", response.content);
-
-            if !response.suggested_commands.is_empty() {
-                println!("\n=== Suggested Commands ===");
-                for cmd in response.suggested_commands {
-                    println!("  {}", cmd);
-                }
-            }
-        }
-        AiCommands::Diagnose => {
-            let agent = panel_ai::AdvisorAgent::new(provider);
-            println!("Running system diagnostics...\n");
-            let response = agent.diagnose_system().await?;
-            println!("{}", response.content);
-        }
-        AiCommands::Optimize => {
-            let agent = panel_ai::AdvisorAgent::new(provider);
-            println!("Analyzing system performance...\n");
-            let response = agent.get_performance_advice().await?;
-            println!("{}", response.content);
-        }
-        AiCommands::Security => {
-            let agent = panel_ai::AdvisorAgent::new(provider);
-            println!("Running security check...\n");
-            let response = agent.security_check().await?;
-            println!("{}", response.content);
-        }
-        AiCommands::Ask { question } => {
-            let question = question.join(" ");
-            if question.is_empty() {
-                eprintln!("Please provide a question");
-                return Ok(());
-            }
-            let agent = panel_ai::AdvisorAgent::new(provider);
-            let response = agent.ask(&question).await?;
-            println!("{}", response.content);
-        }
-    }
-
-    Ok(())
-}
-
-async fn handle_install_command(name: &str, mode: &str, version: Option<&str>) -> Result<()> {
-    let service_mode = match mode.to_lowercase().as_str() {
-        "systemd" => panel_service::ServiceMode::Systemd,
-        "panel1" => panel_service::ServiceMode::Panel1,
-        "docker" => panel_service::ServiceMode::Docker,
-        _ => {
-            eprintln!("Unknown mode: {}. Use systemd, panel1, or docker.", mode);
-            return Ok(());
-        }
-    };
-
-    let manager = panel_service::ServiceManager::new();
-    let default_version = "latest";
-
-    println!(
-        "Installing {} (mode: {}, version: {})...",
-        name,
-        mode,
-        version.unwrap_or(default_version)
-    );
-
-    match manager
-        .install_service(name, name, service_mode, version.unwrap_or(default_version))
-        .await
-    {
-        Ok(service) => {
-            println!("Service installed successfully!");
-            println!("  Name: {}", service.name);
-            println!("  Type: {}", service.service_type);
-            println!("  Mode: {:?}", service.mode);
-            println!("  Version: {}", service.version);
-            if let Some(ref path) = service.binary_path {
-                println!("  Binary: {}", path);
-            }
-        }
-        Err(e) => {
-            eprintln!("Failed to install service: {}", e);
-        }
-    }
-
-    Ok(())
-}
-
-fn create_ai_provider() -> Result<Arc<dyn panel_ai::LlmProvider>> {
-    // 使用 Claude Provider（支持网关模式）
-    let provider = panel_ai::ClaudeProvider::new();
-    Ok(Arc::new(provider))
 }

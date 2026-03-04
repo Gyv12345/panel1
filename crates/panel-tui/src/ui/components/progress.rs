@@ -19,8 +19,6 @@ pub struct ProgressBar<'a> {
     value: u16,
     /// 最大值
     max: u16,
-    /// 宽度
-    width: Option<u16>,
     /// 是否显示百分比
     show_percent: bool,
     /// 自定义颜色
@@ -36,7 +34,6 @@ impl<'a> ProgressBar<'a> {
             label: None,
             value: 0,
             max: 100,
-            width: None,
             show_percent: true,
             color: None,
             title: None,

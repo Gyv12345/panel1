@@ -6,7 +6,6 @@ pub mod binary;
 pub mod manager;
 pub mod registry;
 pub mod systemd;
-pub mod templates;
 
 pub use binary::{BinaryBackend, BinaryConfig, ProcessGuard};
 pub use manager::{ManagedService, ServiceManager, ServiceMode};
@@ -15,10 +14,8 @@ pub use registry::{
     PackageConfig, PackageIndex, PackageRegistry, PackageSummary, PackageVersion, RegistryConfig,
 };
 pub use systemd::SystemdBackend;
-pub use templates::{ServiceTemplate, TemplateRegistry};
 
 pub mod prelude {
     pub use crate::binary::{BinaryBackend, BinaryConfig, ProcessGuard};
     pub use crate::manager::{ManagedService, ServiceManager, ServiceMode};
-    pub use crate::templates::{ServiceTemplate, TemplateRegistry};
 }

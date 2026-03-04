@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "crates/panel-core",
-    "crates/panel-docker",
     "crates/panel-cli",
     "crates/panel-service",
     "crates/panel-ai",
@@ -35,9 +34,6 @@ mime_guess = "2"
 
 # 系统交互
 sysinfo = "0.33"
-
-# Docker
-bollard = "0.18"
 
 # 认证
 jsonwebtoken = "9"

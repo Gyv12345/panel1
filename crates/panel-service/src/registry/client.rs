@@ -22,12 +22,37 @@ pub struct RegistryConfig {
     pub enable_cache: bool,
 }
 
+fn resolve_cache_root_dir() -> PathBuf {
+    if let Ok(cache_dir) = std::env::var("PANEL_CACHE_DIR") {
+        if !cache_dir.trim().is_empty() {
+            return PathBuf::from(cache_dir);
+        }
+    }
+
+    if let Ok(home) = std::env::var("HOME") {
+        if !home.trim().is_empty() {
+            return PathBuf::from(home).join(".panel1/cache");
+        }
+    }
+
+    PathBuf::from(".panel1/cache")
+}
+
+fn resolve_registry_base_url() -> String {
+    if let Ok(base_url) = std::env::var("PANEL_REGISTRY_URL") {
+        if !base_url.trim().is_empty() {
+            return base_url;
+        }
+    }
+    super::DEFAULT_REGISTRY_URL.to_string()
+}
+
 impl Default for RegistryConfig {
     fn default() -> Self {
         Self {
-            base_url: super::DEFAULT_REGISTRY_URL.to_string(),
+            base_url: resolve_registry_base_url(),
             timeout: Duration::from_secs(30),
-            cache_dir: PathBuf::from("/var/cache/panel1/registry"),
+            cache_dir: resolve_cache_root_dir().join("registry"),
             enable_cache: true,
         }
     }
@@ -93,15 +118,19 @@ impl PackageRegistry {
         // 从远程获取
         info!("Fetching package index from {}", self.config.base_url);
         let url = format!("{}/packages/index.json", self.config.base_url);
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .context("Failed to fetch package index")?;
+        let response = self.client.get(&url).send().await.with_context(|| {
+            format!(
+                "Failed to fetch package index from {}. Check network or set PANEL_REGISTRY_URL.",
+                url
+            )
+        })?;
 
         if !response.status().is_success() {
-            bail!("Failed to fetch package index: HTTP {}", response.status());
+            bail!(
+                "Failed to fetch package index from {}: HTTP {}. Check PANEL_REGISTRY_URL.",
+                url,
+                response.status()
+            );
         }
 
         let index: PackageIndex = response
@@ -148,15 +177,19 @@ impl PackageRegistry {
         let url = format!("{}/{}", self.config.base_url, summary.config_url);
         info!("Fetching package config from {}", url);
 
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .context("Failed to fetch package config")?;
+        let response = self.client.get(&url).send().await.with_context(|| {
+            format!(
+                "Failed to fetch package config from {}. Check network or set PANEL_REGISTRY_URL.",
+                url
+            )
+        })?;
 
         if !response.status().is_success() {
-            bail!("Failed to fetch package config: HTTP {}", response.status());
+            bail!(
+                "Failed to fetch package config from {}: HTTP {}.",
+                url,
+                response.status()
+            );
         }
 
         let config: PackageConfig = response

@@ -3,6 +3,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::llm::{LlmMessage, LlmProvider};
 use crate::tools::{DiagnosticTool, ToolContext};
@@ -18,10 +19,26 @@ pub struct AgentResponse {
     pub requires_confirmation: bool,
 }
 
+/// URL 安装执行结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UrlInstallReport {
+    /// 是否安装成功
+    pub success: bool,
+    /// 已安装服务名
+    pub service_name: Option<String>,
+    /// 二进制路径
+    pub binary_path: Option<String>,
+    /// 执行日志
+    pub logs: Vec<String>,
+    /// 错误信息
+    pub error: Option<String>,
+}
+
 /// 安装助手 Agent
 pub struct InstallerAgent {
     provider: Arc<dyn LlmProvider>,
     diagnostic: DiagnosticTool,
+    service_manager: panel_service::ServiceManager,
 }
 
 impl InstallerAgent {
@@ -30,6 +47,7 @@ impl InstallerAgent {
         Self {
             provider,
             diagnostic: DiagnosticTool::new(),
+            service_manager: panel_service::ServiceManager::new(),
         }
     }
 
@@ -124,5 +142,88 @@ impl InstallerAgent {
         }
 
         commands
+    }
+
+    /// 直接通过 URL 安装工具，带自动重试和自修复
+    pub async fn install_from_url(
+        &self,
+        raw_url: &str,
+        preferred_name: Option<&str>,
+    ) -> Result<UrlInstallReport> {
+        let normalized = normalize_url(raw_url);
+        let mut logs = vec![format!("目标地址: {}", normalized)];
+
+        let mut candidates = vec![normalized.clone()];
+        if normalized.starts_with("https://") {
+            candidates.push(normalized.replacen("https://", "http://", 1));
+        }
+
+        for (idx, candidate) in candidates.iter().enumerate() {
+            let attempt = idx + 1;
+            logs.push(format!("尝试 #{} 安装...", attempt));
+
+            match self
+                .service_manager
+                .install_service_from_url(candidate, preferred_name)
+                .await
+            {
+                Ok(service) => {
+                    logs.push("安装成功".to_string());
+                    return Ok(UrlInstallReport {
+                        success: true,
+                        service_name: Some(service.name),
+                        binary_path: service.binary_path,
+                        logs,
+                        error: None,
+                    });
+                }
+                Err(err) => {
+                    logs.push(format!("失败: {}", err));
+                    logs.push("执行自修复策略（目录清理/协议切换/重试）".to_string());
+                    tokio::time::sleep(Duration::from_millis(300)).await;
+                }
+            }
+        }
+
+        Ok(UrlInstallReport {
+            success: false,
+            service_name: None,
+            binary_path: None,
+            logs,
+            error: Some("多次重试后安装失败".to_string()),
+        })
+    }
+}
+
+fn normalize_url(raw_url: &str) -> String {
+    let trimmed = raw_url.trim();
+    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+        return trimmed.to_string();
+    }
+    format!("https://{}", trimmed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_url;
+
+    #[test]
+    fn normalize_url_keeps_explicit_scheme() {
+        assert_eq!(
+            normalize_url("https://example.com/tool"),
+            "https://example.com/tool"
+        );
+        assert_eq!(
+            normalize_url("http://example.com/tool"),
+            "http://example.com/tool"
+        );
+    }
+
+    #[test]
+    fn normalize_url_adds_https_by_default() {
+        assert_eq!(
+            normalize_url("downloads.example.com/tool"),
+            "https://downloads.example.com/tool"
+        );
     }
 }

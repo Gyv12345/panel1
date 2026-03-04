@@ -4,4 +4,4 @@ mod advisor;
 mod installer;
 
 pub use advisor::AdvisorAgent;
-pub use installer::{AgentResponse, InstallerAgent};
+pub use installer::{AgentResponse, InstallerAgent, UrlInstallReport};

@@ -91,10 +91,26 @@ pub struct DownloadConfig {
     pub max_retries: u32,
 }
 
+fn resolve_cache_root_dir() -> PathBuf {
+    if let Ok(cache_dir) = std::env::var("PANEL_CACHE_DIR") {
+        if !cache_dir.trim().is_empty() {
+            return PathBuf::from(cache_dir);
+        }
+    }
+
+    if let Ok(home) = std::env::var("HOME") {
+        if !home.trim().is_empty() {
+            return PathBuf::from(home).join(".panel1/cache");
+        }
+    }
+
+    PathBuf::from(".panel1/cache")
+}
+
 impl Default for DownloadConfig {
     fn default() -> Self {
         Self {
-            cache_dir: PathBuf::from("/var/cache/panel1/downloads"),
+            cache_dir: resolve_cache_root_dir().join("downloads"),
             timeout: 300,
             chunk_size: 8192,
             max_retries: 3,

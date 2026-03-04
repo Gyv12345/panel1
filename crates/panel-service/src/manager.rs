@@ -121,6 +121,16 @@ impl ServiceManager {
         }
     }
 
+    /// 通过 URL 安装服务（Agent 模式）
+    pub async fn install_service_from_url(
+        &self,
+        url: &str,
+        preferred_name: Option<&str>,
+    ) -> Result<ManagedService> {
+        let mut backend = self.binary_backend.write().await;
+        backend.install_from_url(preferred_name, url).await
+    }
+
     /// 启动服务
     pub async fn start_service(&self, service: &ManagedService) -> Result<()> {
         match service.mode {
