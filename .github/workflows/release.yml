@@ -91,7 +91,7 @@ jobs:
 
           ```bash
           # Direct install (recommended)
-          curl -fsSL https://raw.githubusercontent.com/Gyv12345/panel1/main/install.sh | bash
+          curl -fsSL https://raw.githubusercontent.com/Gyv12345/panel1/master/install.sh | bash
           ```
 
           ## Usage
@@ -163,7 +163,7 @@ jobs:
 
             ### Usage
             ```bash
-            curl -fsSL https://raw.githubusercontent.com/Gyv12345/panel1/main/install.sh | bash
+            curl -fsSL https://raw.githubusercontent.com/Gyv12345/panel1/master/install.sh | bash
             ```
           files: |
             artifacts/**/panel1-*.tar.gz

@@ -12,6 +12,7 @@ VERSION_NO_V=""
 ARCH=""
 TARGET=""
 TMP_DIR=""
+HAS_RELEASE_TAG="1"
 
 usage() {
   cat <<'EOF'
@@ -94,10 +95,17 @@ download_text() {
 resolve_version() {
   if [[ "${REQUESTED_VERSION}" == "latest" ]]; then
     local api_url="https://api.github.com/repos/${REPO}/releases/latest"
-    local json
-    json="$(download_text "${api_url}")" || die "Failed to query latest release from ${REPO}."
-    TAG="$(printf '%s' "${json}" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
-    [[ -n "${TAG}" ]] || die "Could not parse latest release tag from GitHub API."
+    local json=""
+    if json="$(download_text "${api_url}" 2>/dev/null)"; then
+      TAG="$(printf '%s' "${json}" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+    fi
+
+    if [[ -z "${TAG}" ]]; then
+      HAS_RELEASE_TAG="0"
+      VERSION_NO_V=""
+      warn "No latest GitHub release found for ${REPO}; trying source fallback."
+      return
+    fi
   else
     if [[ "${REQUESTED_VERSION}" == v* ]]; then
       TAG="${REQUESTED_VERSION}"
@@ -243,10 +251,14 @@ main() {
   resolve_arch
   resolve_version
 
-  log "Installing panel1 ${TAG} for ${ARCH}..."
+  if [[ -n "${TAG}" ]]; then
+    log "Installing panel1 ${TAG} for ${ARCH}..."
+  else
+    log "Installing panel1 from source for ${ARCH}..."
+  fi
 
   local archive
-  if archive="$(download_release_archive)"; then
+  if [[ "${HAS_RELEASE_TAG}" == "1" ]] && archive="$(download_release_archive)"; then
     tar -xzf "${archive}" -C "${TMP_DIR}"
     local extracted_dir="${TMP_DIR}/panel1-${VERSION_NO_V}-${TARGET}"
     local extracted_bin="${extracted_dir}/bin/panel1"
@@ -258,10 +270,18 @@ main() {
     [[ -n "${extracted_bin}" ]] || die "Downloaded package does not contain panel1 binary."
     install_binary "${extracted_bin}"
   else
+    if [[ "${HAS_RELEASE_TAG}" == "1" ]]; then
+      warn "No compatible prebuilt package found for ${ARCH}."
+    fi
+
     if [[ "${ALLOW_SOURCE_FALLBACK}" == "1" ]] && install_from_source; then
       log "Installed from source build."
     else
-      die "No compatible release package found for ${ARCH}. Enable cargo fallback or provide a different --repo/--version."
+      if [[ "${HAS_RELEASE_TAG}" == "1" ]]; then
+        die "No compatible release package found for ${ARCH}. Enable cargo fallback or provide a different --repo/--version."
+      else
+        die "No GitHub release found for ${REPO}. Create a release first or install Cargo for source fallback."
+      fi
     fi
   fi
 
