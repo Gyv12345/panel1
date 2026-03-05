@@ -3,7 +3,7 @@
 use anyhow::{bail, Context, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
@@ -30,6 +30,34 @@ pub struct BinaryConfig {
     pub start_command: String,
     /// 配置文件模板
     pub config_template: Option<String>,
+}
+
+/// URL 安装模式
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum UrlInstallMode {
+    /// 自动检测（默认）
+    Auto,
+    /// 二进制直装模式
+    Panel1,
+    /// Docker 方案模式（会自动检查并安装 Docker 环境）
+    Docker,
+}
+
+impl UrlInstallMode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            UrlInstallMode::Auto => "auto",
+            UrlInstallMode::Panel1 => "panel1",
+            UrlInstallMode::Docker => "docker",
+        }
+    }
+}
+
+impl Default for UrlInstallMode {
+    fn default() -> Self {
+        Self::Auto
+    }
 }
 
 /// 进程守护器
@@ -385,6 +413,7 @@ impl BinaryBackend {
         &mut self,
         preferred_name: Option<&str>,
         raw_url: &str,
+        install_mode: UrlInstallMode,
     ) -> Result<ManagedService> {
         let normalized_url = normalize_url(raw_url);
         let service_name = preferred_name
@@ -403,7 +432,7 @@ impl BinaryBackend {
         for (idx, attempt_url) in attempts.into_iter().enumerate() {
             let attempt_no = idx + 1;
             match self
-                .install_from_url_once(&service_name, &attempt_url, &service_dir)
+                .install_from_url_once(&service_name, &attempt_url, &service_dir, install_mode)
                 .await
             {
                 Ok(service) => return Ok(service),
@@ -430,10 +459,16 @@ impl BinaryBackend {
         service_name: &str,
         url: &str,
         service_dir: &Path,
+        install_mode: UrlInstallMode,
     ) -> Result<ManagedService> {
         tokio::fs::create_dir_all(service_dir)
             .await
             .context("Failed to create service directory")?;
+
+        if install_mode == UrlInstallMode::Docker {
+            ensure_runtime_dependency(RuntimeDependency::Docker)
+                .context("Docker mode requested but Docker dependency setup failed")?;
+        }
 
         let filename = extract_filename(url);
         let downloaded_file = service_dir.join(&filename);
@@ -458,6 +493,19 @@ impl BinaryBackend {
         }
 
         set_executable_permission(&binary_path).await?;
+
+        let dependencies =
+            detect_runtime_dependencies(install_mode, &downloaded_file, &binary_path, service_dir);
+
+        for dependency in dependencies {
+            ensure_runtime_dependency(dependency).with_context(|| {
+                format!(
+                    "Failed to auto install runtime dependency '{}' for {}",
+                    dependency.display_name(),
+                    service_name
+                )
+            })?;
+        }
 
         Ok(ManagedService {
             id: None,
@@ -599,7 +647,10 @@ impl Default for BinaryBackend {
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_default_data_dir, resolve_writable_data_dir, BinaryBackend};
+    use super::{
+        detect_runtime_dependencies, detect_runtime_from_path, resolve_default_data_dir,
+        resolve_writable_data_dir, BinaryBackend, RuntimeDependency, UrlInstallMode,
+    };
     use std::path::{Path, PathBuf};
 
     fn path_eq(actual: &Path, expected: &str) -> bool {
@@ -713,6 +764,47 @@ mod tests {
             super::normalize_url("downloads.example.com/tool"),
             "https://downloads.example.com/tool"
         );
+    }
+
+    #[test]
+    fn detect_runtime_from_extension() {
+        assert_eq!(
+            detect_runtime_from_path(Path::new("/tmp/app.py")),
+            Some(RuntimeDependency::Python)
+        );
+        assert_eq!(
+            detect_runtime_from_path(Path::new("/tmp/app.mjs")),
+            Some(RuntimeDependency::Node)
+        );
+    }
+
+    #[test]
+    fn detect_runtime_from_shebang_script() {
+        let path = std::env::temp_dir().join("panel1-runtime-detect.py");
+        std::fs::write(&path, "#!/usr/bin/env python3\nprint('ok')\n").expect("write test file");
+        assert_eq!(
+            detect_runtime_from_path(&path),
+            Some(RuntimeDependency::Python)
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn detect_runtime_dependencies_respects_docker_mode() {
+        let base = std::env::temp_dir().join("panel1-runtime-detect-dir");
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).expect("create temp dir");
+
+        let download = base.join("tool.tar.gz");
+        let executable = base.join("entry.sh");
+        std::fs::write(&download, "").expect("write fake download");
+        std::fs::write(&executable, "#!/bin/sh\necho ok\n").expect("write fake executable");
+
+        let dependencies =
+            detect_runtime_dependencies(UrlInstallMode::Docker, &download, &executable, &base);
+        assert!(dependencies.contains(&RuntimeDependency::Docker));
+
+        let _ = std::fs::remove_dir_all(base);
     }
 }
 
@@ -915,4 +1007,311 @@ async fn set_executable_permission(path: &Path) -> Result<()> {
             .with_context(|| format!("Failed to set executable permissions: {}", path.display()))?;
     }
     Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum RuntimeDependency {
+    Docker,
+    Node,
+    Python,
+}
+
+impl RuntimeDependency {
+    fn display_name(&self) -> &'static str {
+        match self {
+            RuntimeDependency::Docker => "docker",
+            RuntimeDependency::Node => "node",
+            RuntimeDependency::Python => "python",
+        }
+    }
+
+    fn is_available(&self) -> bool {
+        match self {
+            RuntimeDependency::Docker => command_exists("docker"),
+            RuntimeDependency::Node => command_exists("node") || command_exists("nodejs"),
+            RuntimeDependency::Python => command_exists("python3") || command_exists("python"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LinuxPackageManager {
+    Apt,
+    Dnf,
+    Yum,
+    Pacman,
+    Zypper,
+    Apk,
+}
+
+impl LinuxPackageManager {
+    fn detect() -> Option<Self> {
+        if command_exists("apt-get") {
+            return Some(Self::Apt);
+        }
+        if command_exists("dnf") {
+            return Some(Self::Dnf);
+        }
+        if command_exists("yum") {
+            return Some(Self::Yum);
+        }
+        if command_exists("pacman") {
+            return Some(Self::Pacman);
+        }
+        if command_exists("zypper") {
+            return Some(Self::Zypper);
+        }
+        if command_exists("apk") {
+            return Some(Self::Apk);
+        }
+        None
+    }
+}
+
+fn command_exists(command: &str) -> bool {
+    std::env::var_os("PATH")
+        .map(|paths| {
+            std::env::split_paths(&paths).any(|dir| {
+                let candidate = dir.join(command);
+                candidate.is_file()
+            })
+        })
+        .unwrap_or(false)
+}
+
+fn dependency_install_command(
+    dependency: RuntimeDependency,
+    package_manager: LinuxPackageManager,
+) -> &'static str {
+    match (dependency, package_manager) {
+        (RuntimeDependency::Docker, LinuxPackageManager::Apt) => {
+            "apt-get update && apt-get install -y docker.io"
+        }
+        (RuntimeDependency::Docker, LinuxPackageManager::Dnf) => "dnf -y install docker",
+        (RuntimeDependency::Docker, LinuxPackageManager::Yum) => "yum -y install docker",
+        (RuntimeDependency::Docker, LinuxPackageManager::Pacman) => "pacman -Sy --noconfirm docker",
+        (RuntimeDependency::Docker, LinuxPackageManager::Zypper) => {
+            "zypper --non-interactive install docker"
+        }
+        (RuntimeDependency::Docker, LinuxPackageManager::Apk) => "apk add docker",
+        (RuntimeDependency::Node, LinuxPackageManager::Apt) => {
+            "apt-get update && apt-get install -y nodejs npm"
+        }
+        (RuntimeDependency::Node, LinuxPackageManager::Dnf) => "dnf -y install nodejs npm",
+        (RuntimeDependency::Node, LinuxPackageManager::Yum) => "yum -y install nodejs npm",
+        (RuntimeDependency::Node, LinuxPackageManager::Pacman) => {
+            "pacman -Sy --noconfirm nodejs npm"
+        }
+        (RuntimeDependency::Node, LinuxPackageManager::Zypper) => {
+            "zypper --non-interactive install nodejs npm"
+        }
+        (RuntimeDependency::Node, LinuxPackageManager::Apk) => "apk add nodejs npm",
+        (RuntimeDependency::Python, LinuxPackageManager::Apt) => {
+            "apt-get update && apt-get install -y python3 python3-pip"
+        }
+        (RuntimeDependency::Python, LinuxPackageManager::Dnf) => {
+            "dnf -y install python3 python3-pip"
+        }
+        (RuntimeDependency::Python, LinuxPackageManager::Yum) => {
+            "yum -y install python3 python3-pip"
+        }
+        (RuntimeDependency::Python, LinuxPackageManager::Pacman) => {
+            "pacman -Sy --noconfirm python python-pip"
+        }
+        (RuntimeDependency::Python, LinuxPackageManager::Zypper) => {
+            "zypper --non-interactive install python3 python3-pip"
+        }
+        (RuntimeDependency::Python, LinuxPackageManager::Apk) => "apk add python3 py3-pip",
+    }
+}
+
+fn run_shell_command_with_privilege(command: &str) -> Result<()> {
+    let output = if detect_is_root_user() {
+        Command::new("sh")
+            .args(["-lc", command])
+            .output()
+            .with_context(|| format!("Failed to execute command: {}", command))?
+    } else if command_exists("sudo") {
+        Command::new("sudo")
+            .args(["sh", "-lc", command])
+            .output()
+            .with_context(|| format!("Failed to execute command with sudo: {}", command))?
+    } else {
+        bail!(
+            "Need root/sudo to install dependency, but sudo is not available. Command: {}",
+            command
+        );
+    };
+
+    if !output.status.success() {
+        bail!(
+            "Command failed: {}\nstdout: {}\nstderr: {}",
+            command,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    Ok(())
+}
+
+fn ensure_runtime_dependency(dependency: RuntimeDependency) -> Result<()> {
+    if dependency.is_available() {
+        return Ok(());
+    }
+
+    let package_manager = LinuxPackageManager::detect().with_context(|| {
+        format!(
+            "Could not detect Linux package manager for installing '{}'",
+            dependency.display_name()
+        )
+    })?;
+
+    let install_command = dependency_install_command(dependency, package_manager);
+    run_shell_command_with_privilege(install_command)?;
+
+    if dependency == RuntimeDependency::Docker && command_exists("systemctl") {
+        let _ = run_shell_command_with_privilege("systemctl daemon-reload");
+        let _ = run_shell_command_with_privilege("systemctl enable --now docker");
+    }
+
+    if !dependency.is_available() {
+        bail!(
+            "Dependency '{}' still unavailable after install command",
+            dependency.display_name()
+        );
+    }
+
+    Ok(())
+}
+
+fn detect_runtime_dependencies(
+    install_mode: UrlInstallMode,
+    downloaded_file: &Path,
+    executable_path: &Path,
+    service_dir: &Path,
+) -> BTreeSet<RuntimeDependency> {
+    let mut dependencies = BTreeSet::new();
+
+    if install_mode == UrlInstallMode::Docker {
+        dependencies.insert(RuntimeDependency::Docker);
+    }
+
+    if let Some(dependency) = detect_runtime_from_path(downloaded_file) {
+        dependencies.insert(dependency);
+    }
+
+    if let Some(dependency) = detect_runtime_from_path(executable_path) {
+        dependencies.insert(dependency);
+    }
+
+    if directory_contains_any_file_name(
+        service_dir,
+        &[
+            "dockerfile",
+            "docker-compose.yml",
+            "docker-compose.yaml",
+            "compose.yml",
+            "compose.yaml",
+        ],
+    ) {
+        dependencies.insert(RuntimeDependency::Docker);
+    }
+
+    if directory_contains_any_file_name(
+        service_dir,
+        &["requirements.txt", "pyproject.toml", "setup.py", "pipfile"],
+    ) {
+        dependencies.insert(RuntimeDependency::Python);
+    }
+
+    if directory_contains_any_file_name(
+        service_dir,
+        &[
+            "package.json",
+            "package-lock.json",
+            "yarn.lock",
+            "pnpm-lock.yaml",
+        ],
+    ) {
+        dependencies.insert(RuntimeDependency::Node);
+    }
+
+    dependencies
+}
+
+fn detect_runtime_from_path(path: &Path) -> Option<RuntimeDependency> {
+    if let Some(extension) = path.extension().and_then(|ext| ext.to_str()) {
+        let lower = extension.to_ascii_lowercase();
+        if lower == "py" {
+            return Some(RuntimeDependency::Python);
+        }
+        if lower == "js" || lower == "mjs" || lower == "cjs" {
+            return Some(RuntimeDependency::Node);
+        }
+    }
+
+    detect_runtime_from_shebang(path)
+}
+
+fn detect_runtime_from_shebang(path: &Path) -> Option<RuntimeDependency> {
+    use std::io::BufRead;
+
+    if !path.is_file() {
+        return None;
+    }
+
+    let file = std::fs::File::open(path).ok()?;
+    let mut reader = std::io::BufReader::new(file);
+    let mut first_line = String::new();
+    reader.read_line(&mut first_line).ok()?;
+
+    if !first_line.starts_with("#!") {
+        return None;
+    }
+
+    let normalized = first_line.to_ascii_lowercase();
+    if normalized.contains("python") {
+        return Some(RuntimeDependency::Python);
+    }
+    if normalized.contains("node") {
+        return Some(RuntimeDependency::Node);
+    }
+
+    None
+}
+
+fn directory_contains_any_file_name(dir: &Path, candidates: &[&str]) -> bool {
+    let mut stack = vec![dir.to_path_buf()];
+    let expected: Vec<String> = candidates
+        .iter()
+        .map(|name| name.to_ascii_lowercase())
+        .collect();
+
+    while let Some(current) = stack.pop() {
+        let entries = match std::fs::read_dir(&current) {
+            Ok(entries) => entries,
+            Err(_) => continue,
+        };
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+
+            let filename = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.to_ascii_lowercase());
+            if let Some(filename) = filename {
+                if expected.iter().any(|candidate| candidate == &filename) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
 }

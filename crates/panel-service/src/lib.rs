@@ -7,7 +7,7 @@ pub mod manager;
 pub mod registry;
 pub mod systemd;
 
-pub use binary::{BinaryBackend, BinaryConfig, ProcessGuard};
+pub use binary::{BinaryBackend, BinaryConfig, ProcessGuard, UrlInstallMode};
 pub use manager::{ManagedService, ServiceManager, ServiceMode};
 pub use registry::{
     Artifact, Checksum, DownloadManager, DownloadProgress, InstallConfig, PackageCategory,
@@ -16,6 +16,6 @@ pub use registry::{
 pub use systemd::SystemdBackend;
 
 pub mod prelude {
-    pub use crate::binary::{BinaryBackend, BinaryConfig, ProcessGuard};
+    pub use crate::binary::{BinaryBackend, BinaryConfig, ProcessGuard, UrlInstallMode};
     pub use crate::manager::{ManagedService, ServiceManager, ServiceMode};
 }

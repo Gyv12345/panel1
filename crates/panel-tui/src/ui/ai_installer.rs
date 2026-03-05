@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
-use panel_ai::{InstallerAgent, LlmProvider};
+use panel_ai::{InstallMode, InstallerAgent, LlmProvider};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     text::{Line, Span},
@@ -19,12 +19,14 @@ use crate::theme::Theme;
 enum FieldFocus {
     Url,
     Name,
+    Mode,
 }
 
 /// AI 安装 Agent 面板
 pub struct AiInstallerPanel {
     url_input: String,
     name_input: String,
+    install_mode: InstallMode,
     focus: FieldFocus,
     installing: bool,
     logs: Vec<String>,
@@ -39,6 +41,7 @@ impl AiInstallerPanel {
         Self {
             url_input: String::new(),
             name_input: String::new(),
+            install_mode: InstallMode::Auto,
             focus: FieldFocus::Url,
             installing: false,
             logs: vec![
@@ -59,14 +62,26 @@ impl AiInstallerPanel {
             KeyCode::Tab | KeyCode::Down => {
                 self.focus = match self.focus {
                     FieldFocus::Url => FieldFocus::Name,
-                    FieldFocus::Name => FieldFocus::Url,
+                    FieldFocus::Name => FieldFocus::Mode,
+                    FieldFocus::Mode => FieldFocus::Url,
                 };
             }
             KeyCode::Up => {
                 self.focus = match self.focus {
-                    FieldFocus::Url => FieldFocus::Name,
+                    FieldFocus::Url => FieldFocus::Mode,
                     FieldFocus::Name => FieldFocus::Url,
+                    FieldFocus::Mode => FieldFocus::Name,
                 };
+            }
+            KeyCode::Left => {
+                if self.focus == FieldFocus::Mode {
+                    self.install_mode = prev_install_mode(self.install_mode);
+                }
+            }
+            KeyCode::Right => {
+                if self.focus == FieldFocus::Mode {
+                    self.install_mode = next_install_mode(self.install_mode);
+                }
             }
             KeyCode::Backspace => match self.focus {
                 FieldFocus::Url => {
@@ -75,10 +90,12 @@ impl AiInstallerPanel {
                 FieldFocus::Name => {
                     self.name_input.pop();
                 }
+                FieldFocus::Mode => {}
             },
             KeyCode::Esc => match self.focus {
                 FieldFocus::Url => self.url_input.clear(),
                 FieldFocus::Name => self.name_input.clear(),
+                FieldFocus::Mode => self.install_mode = InstallMode::Auto,
             },
             KeyCode::Enter => {
                 if self.url_input.trim().is_empty() {
@@ -90,6 +107,11 @@ impl AiInstallerPanel {
             KeyCode::Char(c) => match self.focus {
                 FieldFocus::Url => self.url_input.push(c),
                 FieldFocus::Name => self.name_input.push(c),
+                FieldFocus::Mode => {
+                    if c == 'm' || c == 'M' {
+                        self.install_mode = next_install_mode(self.install_mode);
+                    }
+                }
             },
             _ => {}
         }
@@ -110,7 +132,7 @@ impl AiInstallerPanel {
 
         match self
             .installer
-            .install_from_url(self.url_input.trim(), preferred_name)
+            .install_from_url(self.url_input.trim(), preferred_name, self.install_mode)
             .await
         {
             Ok(report) => {
@@ -147,6 +169,7 @@ impl AiInstallerPanel {
             .constraints([
                 Constraint::Length(3),
                 Constraint::Length(3),
+                Constraint::Length(3),
                 Constraint::Length(2),
                 Constraint::Min(0),
             ])
@@ -166,8 +189,15 @@ impl AiInstallerPanel {
             &self.name_input,
             self.focus == FieldFocus::Name,
         );
-        self.draw_hint(f, chunks[2]);
-        self.draw_logs(f, chunks[3]);
+        self.draw_input_line(
+            f,
+            chunks[2],
+            "安装方案",
+            install_mode_label(self.install_mode),
+            self.focus == FieldFocus::Mode,
+        );
+        self.draw_hint(f, chunks[3]);
+        self.draw_logs(f, chunks[4]);
     }
 
     fn draw_input_line(&self, f: &mut Frame, area: Rect, title: &str, value: &str, focused: bool) {
@@ -209,7 +239,9 @@ impl AiInstallerPanel {
             Span::styled("[Enter] ", Theme::accent()),
             Span::styled("开始安装  ", Theme::text()),
             Span::styled("[Esc] ", Theme::accent()),
-            Span::styled("清空当前输入", Theme::text()),
+            Span::styled("清空当前输入  ", Theme::text()),
+            Span::styled("[m/←→] ", Theme::accent()),
+            Span::styled("切换安装方案", Theme::text()),
         ];
 
         if self.installing {
@@ -244,5 +276,29 @@ impl AiInstallerPanel {
 impl Default for AiInstallerPanel {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+fn install_mode_label(mode: InstallMode) -> &'static str {
+    match mode {
+        InstallMode::Auto => "auto（自动检测依赖）",
+        InstallMode::Panel1 => "panel1（二进制直装）",
+        InstallMode::Docker => "docker（强制 Docker 方案）",
+    }
+}
+
+fn next_install_mode(mode: InstallMode) -> InstallMode {
+    match mode {
+        InstallMode::Auto => InstallMode::Panel1,
+        InstallMode::Panel1 => InstallMode::Docker,
+        InstallMode::Docker => InstallMode::Auto,
+    }
+}
+
+fn prev_install_mode(mode: InstallMode) -> InstallMode {
+    match mode {
+        InstallMode::Auto => InstallMode::Docker,
+        InstallMode::Panel1 => InstallMode::Auto,
+        InstallMode::Docker => InstallMode::Panel1,
     }
 }

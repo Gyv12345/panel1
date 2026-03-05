@@ -34,6 +34,9 @@ pub struct UrlInstallReport {
     pub error: Option<String>,
 }
 
+/// 安装模式（透传到 panel-service）
+pub type InstallMode = panel_service::UrlInstallMode;
+
 /// 安装助手 Agent
 pub struct InstallerAgent {
     provider: Arc<dyn LlmProvider>,
@@ -149,9 +152,14 @@ impl InstallerAgent {
         &self,
         raw_url: &str,
         preferred_name: Option<&str>,
+        mode: InstallMode,
     ) -> Result<UrlInstallReport> {
         let normalized = normalize_url(raw_url);
-        let mut logs = vec![format!("目标地址: {}", normalized)];
+        let mut logs = vec![
+            format!("目标地址: {}", normalized),
+            format!("安装模式: {}", mode.as_str()),
+            "检查宿主机依赖（Docker/Node/Python）".to_string(),
+        ];
 
         let mut candidates = vec![normalized.clone()];
         if normalized.starts_with("https://") {
@@ -164,7 +172,7 @@ impl InstallerAgent {
 
             match self
                 .service_manager
-                .install_service_from_url(candidate, preferred_name)
+                .install_service_from_url(candidate, preferred_name, mode)
                 .await
             {
                 Ok(service) => {

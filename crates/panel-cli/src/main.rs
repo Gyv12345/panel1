@@ -1,7 +1,7 @@
 //! Panel1 - Linux Server Management Panel with TUI
 
 use anyhow::{bail, Result};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::sync::Arc;
 
 #[derive(Parser)]
@@ -26,10 +26,30 @@ enum Commands {
         /// Optional service name override
         #[arg(short, long)]
         name: Option<String>,
+        /// Install strategy: auto detects dependencies, docker enforces Docker path
+        #[arg(long, value_enum, default_value_t = InstallModeArg::Auto)]
+        mode: InstallModeArg,
         /// Show detailed install logs
         #[arg(short, long)]
         verbose: bool,
     },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum InstallModeArg {
+    Auto,
+    Panel1,
+    Docker,
+}
+
+impl From<InstallModeArg> for panel_ai::InstallMode {
+    fn from(value: InstallModeArg) -> Self {
+        match value {
+            InstallModeArg::Auto => panel_ai::InstallMode::Auto,
+            InstallModeArg::Panel1 => panel_ai::InstallMode::Panel1,
+            InstallModeArg::Docker => panel_ai::InstallMode::Docker,
+        }
+    }
 }
 
 #[tokio::main]
@@ -50,8 +70,13 @@ async fn main() -> Result<()> {
         Some(Commands::Status) => {
             show_system_status()?;
         }
-        Some(Commands::Install { url, name, verbose }) => {
-            handle_install_command(&url, name.as_deref(), verbose).await?;
+        Some(Commands::Install {
+            url,
+            name,
+            mode,
+            verbose,
+        }) => {
+            handle_install_command(&url, name.as_deref(), mode.into(), verbose).await?;
         }
     }
 
@@ -103,6 +128,7 @@ async fn handle_tui_command() -> Result<()> {
 async fn handle_install_command(
     url: &str,
     preferred_name: Option<&str>,
+    mode: panel_ai::InstallMode,
     verbose: bool,
 ) -> Result<()> {
     let provider: Arc<dyn panel_ai::LlmProvider> = Arc::new(panel_ai::ClaudeProvider::new());
@@ -110,7 +136,9 @@ async fn handle_install_command(
 
     println!("Installing from URL...");
 
-    let report = installer.install_from_url(url, preferred_name).await?;
+    let report = installer
+        .install_from_url(url, preferred_name, mode)
+        .await?;
 
     if verbose {
         for line in &report.logs {

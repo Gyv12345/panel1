@@ -26,13 +26,13 @@ curl -fsSL https://raw.githubusercontent.com/Gyv12345/panel1/main/install.sh | b
 
 ```bash
 # 下载最新版本（Linux x86_64）
-wget https://github.com/Gyv12345/panel1/releases/latest/download/panel1-0.1.0-x86_64-unknown-linux-gnu.tar.gz
+wget https://github.com/Gyv12345/panel1/releases/latest/download/panel1-0.1.0-x86_64-unknown-linux-musl.tar.gz
 
 # 解压
-tar -xzf panel1-0.1.0-x86_64-unknown-linux-gnu.tar.gz
+tar -xzf panel1-0.1.0-x86_64-unknown-linux-musl.tar.gz
 
 # 安装
-sudo cp panel1-0.1.0-x86_64-unknown-linux-gnu/bin/panel1 /usr/local/bin/
+sudo cp panel1-0.1.0-x86_64-unknown-linux-musl/bin/panel1 /usr/local/bin/
 ```
 
 ### 从源码编译
@@ -59,6 +59,7 @@ panel1 status
 # 通过 URL 安装工具（Agent 模式）
 panel1 install https://example.com/tool.tar.gz
 panel1 install https://example.com/my-tool --name my-tool
+panel1 install https://example.com/compose.zip --mode docker
 panel1 install https://example.com/tool.tar.gz --verbose
 ```
 
@@ -69,6 +70,7 @@ panel1 install https://example.com/tool.tar.gz --verbose
 | `1` | 服务器监控 |
 | `2` | AI 安装 Agent |
 | `Tab` / `↑↓` | AI 页切换输入项 |
+| `m` / `←→` | 切换安装方案（auto/panel1/docker） |
 | `Enter` | 提交 URL 并自动安装 |
 | `?` | 帮助 |
 | `q` | 退出 |
@@ -78,8 +80,9 @@ panel1 install https://example.com/tool.tar.gz --verbose
 `panel1 install <url>` 会自动执行：
 1. 下载文件
 2. 识别归档并尝试解压
-3. 自动重试和基础自修复
-4. 写入本地服务目录并设置可执行权限
+3. 分析并自动补齐依赖（Docker/Node/Python）
+4. 自动重试和基础自修复
+5. 写入本地服务目录并设置可执行权限
 
 ## Linux 兼容性
 

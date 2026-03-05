@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::binary::BinaryBackend;
+use crate::binary::{BinaryBackend, UrlInstallMode};
 use crate::systemd::SystemdBackend;
 
 /// 服务运行模式
@@ -126,9 +126,12 @@ impl ServiceManager {
         &self,
         url: &str,
         preferred_name: Option<&str>,
+        install_mode: UrlInstallMode,
     ) -> Result<ManagedService> {
         let mut backend = self.binary_backend.write().await;
-        backend.install_from_url(preferred_name, url).await
+        backend
+            .install_from_url(preferred_name, url, install_mode)
+            .await
     }
 
     /// 启动服务

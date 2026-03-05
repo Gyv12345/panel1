@@ -334,7 +334,7 @@ impl App {
 
         f.render_widget(
             Paragraph::new(
-                " AI 安装页: 输入 URL + 回车安装  |  [Tab] 切换输入项  |  自动重试与自修复",
+                " AI 安装页: 输入 URL + 回车安装  |  [Tab] 切换输入项  |  [m/←→] 切换模式",
             )
             .style(Theme::subtext())
             .alignment(ratatui::layout::Alignment::Left),
