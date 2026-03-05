@@ -22,7 +22,6 @@ pub struct RegistryConfig {
     pub enable_cache: bool,
 }
 /// 解析 cache root dir。
-
 fn resolve_cache_root_dir() -> PathBuf {
     if let Ok(cache_dir) = std::env::var("PANEL_CACHE_DIR") {
         if !cache_dir.trim().is_empty() {
@@ -39,7 +38,6 @@ fn resolve_cache_root_dir() -> PathBuf {
     PathBuf::from(".panel1/cache")
 }
 /// 解析 registry base url。
-
 fn resolve_registry_base_url() -> String {
     if let Ok(base_url) = std::env::var("PANEL_REGISTRY_URL") {
         if !base_url.trim().is_empty() {

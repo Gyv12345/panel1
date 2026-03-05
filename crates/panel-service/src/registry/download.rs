@@ -91,7 +91,6 @@ pub struct DownloadConfig {
     pub max_retries: u32,
 }
 /// 解析 cache root dir。
-
 fn resolve_cache_root_dir() -> PathBuf {
     if let Ok(cache_dir) = std::env::var("PANEL_CACHE_DIR") {
         if !cache_dir.trim().is_empty() {

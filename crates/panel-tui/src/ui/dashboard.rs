@@ -79,7 +79,6 @@ impl Dashboard {
         self.draw_disk_table(f, chunks[3], &disk_info);
     }
     /// 绘制 overview row。
-
     fn draw_overview_row(
         &self,
         f: &mut Frame,
@@ -116,7 +115,6 @@ impl Dashboard {
         self.draw_shortcuts_card(f, chunks[2]);
     }
     /// 绘制 resource card。
-
     fn draw_resource_card(
         &self,
         f: &mut Frame,
@@ -148,7 +146,6 @@ impl Dashboard {
         resource_usage("MEM", mem.usage, chunks[1], f);
     }
     /// 绘制 shortcuts card。
-
     fn draw_shortcuts_card(&self, f: &mut Frame, area: Rect) {
         use ratatui::widgets::Block;
 
@@ -170,7 +167,6 @@ impl Dashboard {
         f.render_widget(paragraph, inner);
     }
     /// 绘制 cpu section。
-
     fn draw_cpu_section(&self, f: &mut Frame, area: Rect, info: &panel_core::CpuInfo) {
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
@@ -208,7 +204,6 @@ impl Dashboard {
         f.render_widget(gauge, chunks[1]);
     }
     /// 绘制 memory section。
-
     fn draw_memory_section(&self, f: &mut Frame, area: Rect, info: &panel_core::MemoryInfo) {
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
@@ -248,7 +243,6 @@ impl Dashboard {
         f.render_widget(gauge, chunks[1]);
     }
     /// 绘制 disk table。
-
     fn draw_disk_table(&self, f: &mut Frame, area: Rect, disks: &[panel_core::DiskInfo]) {
         let block = Block::default()
             .title(" 磁盘 ")

@@ -119,7 +119,6 @@ pub struct PackageVersion {
     pub changelog: Option<String>,
 }
 /// 执行 `default_true`。
-
 fn default_true() -> bool {
     true
 }
@@ -143,7 +142,6 @@ pub struct Artifact {
     pub archive_format: String,
 }
 /// 执行 `default_archive_format`。
-
 fn default_archive_format() -> String {
     "tar.gz".to_string()
 }

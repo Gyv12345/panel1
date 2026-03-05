@@ -203,7 +203,6 @@ impl InstallerAgent {
     }
 }
 /// 执行 `normalize_url`。
-
 fn normalize_url(raw_url: &str) -> String {
     let trimmed = raw_url.trim();
     if trimmed.starts_with("http://") || trimmed.starts_with("https://") {

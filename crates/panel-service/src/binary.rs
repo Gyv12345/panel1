@@ -127,21 +127,18 @@ pub struct BinaryBackend {
     downloader: Option<DownloadManager>,
 }
 /// 执行 `read_env_non_empty`。
-
 fn read_env_non_empty(key: &str) -> Option<String> {
     std::env::var(key)
         .ok()
         .filter(|value| !value.trim().is_empty())
 }
 /// 检测 is root user。
-
 fn detect_is_root_user() -> bool {
     read_env_non_empty("EUID").as_deref() == Some("0")
         || read_env_non_empty("UID").as_deref() == Some("0")
         || read_env_non_empty("USER").as_deref() == Some("root")
 }
 /// 解析 default data dir。
-
 fn resolve_default_data_dir(
     panel_service_dir: Option<&str>,
     panel_data_dir: Option<&str>,
@@ -168,7 +165,6 @@ fn resolve_default_data_dir(
     PathBuf::from(".panel1/services")
 }
 /// 执行 `ensure_writable_dir`。
-
 fn ensure_writable_dir(path: &Path) -> bool {
     if std::fs::create_dir_all(path).is_err() {
         return false;
@@ -184,7 +180,6 @@ fn ensure_writable_dir(path: &Path) -> bool {
     }
 }
 /// 解析 writable data dir。
-
 fn resolve_writable_data_dir(primary: PathBuf, fallback_base: &Path) -> PathBuf {
     if ensure_writable_dir(&primary) {
         return primary;
@@ -462,7 +457,6 @@ impl BinaryBackend {
             .with_context(|| format!("Failed to install service from URL: {}", raw_url))
     }
     /// 安装 from url once。
-
     async fn install_from_url_once(
         &self,
         service_name: &str,
@@ -530,7 +524,6 @@ impl BinaryBackend {
         })
     }
     /// 执行 `heal_install_directory`。
-
     async fn heal_install_directory(&self, service_dir: &Path) {
         let _ = tokio::fs::create_dir_all(service_dir).await;
 
@@ -664,9 +657,8 @@ mod tests {
     };
     use std::path::{Path, PathBuf};
     /// 执行 `path_eq`。
-
     fn path_eq(actual: &Path, expected: &str) -> bool {
-        actual == PathBuf::from(expected)
+        actual == Path::new(expected)
     }
 
     /// 解析 default data dir prefers panel service dir env。
@@ -843,7 +835,6 @@ fn extract_filename(url: &str) -> String {
         .to_string()
 }
 /// 执行 `normalize_url`。
-
 fn normalize_url(raw_url: &str) -> String {
     let trimmed = raw_url.trim();
     if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
@@ -852,7 +843,6 @@ fn normalize_url(raw_url: &str) -> String {
     format!("https://{}", trimmed)
 }
 /// 执行 `sanitize_service_name`。
-
 fn sanitize_service_name(name: &str) -> String {
     name.trim()
         .chars()
@@ -868,7 +858,6 @@ fn sanitize_service_name(name: &str) -> String {
         .to_ascii_lowercase()
 }
 /// 执行 `infer_service_name`。
-
 fn infer_service_name(url: &str) -> String {
     let mut filename = extract_filename(url).to_ascii_lowercase();
 
@@ -887,7 +876,6 @@ fn infer_service_name(url: &str) -> String {
     }
 }
 /// 判断是否 archive file。
-
 fn is_archive_file(filename: &str) -> bool {
     let lower = filename.to_ascii_lowercase();
     lower.ends_with(".tar.gz")
@@ -896,7 +884,6 @@ fn is_archive_file(filename: &str) -> bool {
         || lower.ends_with(".zip")
 }
 /// 执行 `extract_archive`。
-
 fn extract_archive(archive_path: &Path, target_dir: &Path) -> Result<()> {
     let file = archive_path.to_string_lossy().to_string();
     let dir = target_dir.to_string_lossy().to_string();
@@ -935,7 +922,6 @@ fn extract_archive(archive_path: &Path, target_dir: &Path) -> Result<()> {
     Ok(())
 }
 /// 执行 `download_to_file`。
-
 async fn download_to_file(url: &str, target_path: &Path) -> Result<()> {
     let client = Client::builder()
         .timeout(Duration::from_secs(180))
@@ -965,7 +951,6 @@ async fn download_to_file(url: &str, target_path: &Path) -> Result<()> {
     Ok(())
 }
 /// 查找 first regular file。
-
 fn find_first_regular_file(dir: &Path) -> Option<PathBuf> {
     let mut stack = vec![dir.to_path_buf()];
     while let Some(current) = stack.pop() {
@@ -982,7 +967,6 @@ fn find_first_regular_file(dir: &Path) -> Option<PathBuf> {
     None
 }
 /// 查找 executable。
-
 fn find_executable(dir: &Path, preferred_name: &str) -> Option<PathBuf> {
     let mut stack = vec![dir.to_path_buf()];
     let preferred = preferred_name.to_ascii_lowercase();
@@ -1030,7 +1014,6 @@ fn find_executable(dir: &Path, preferred_name: &str) -> Option<PathBuf> {
     best.map(|(_, path)| path)
 }
 /// 设置 executable permission。
-
 async fn set_executable_permission(path: &Path) -> Result<()> {
     #[cfg(unix)]
     {
@@ -1059,7 +1042,6 @@ impl RuntimeDependency {
         }
     }
     /// 判断是否 available。
-
     fn is_available(&self) -> bool {
         match self {
             RuntimeDependency::Docker => command_exists("docker"),
@@ -1104,7 +1086,6 @@ impl LinuxPackageManager {
     }
 }
 /// 执行 `command_exists`。
-
 fn command_exists(command: &str) -> bool {
     std::env::var_os("PATH")
         .map(|paths| {
@@ -1116,7 +1097,6 @@ fn command_exists(command: &str) -> bool {
         .unwrap_or(false)
 }
 /// 执行 `dependency_install_command`。
-
 fn dependency_install_command(
     dependency: RuntimeDependency,
     package_manager: LinuxPackageManager,
@@ -1163,7 +1143,6 @@ fn dependency_install_command(
     }
 }
 /// 运行 shell command with privilege。
-
 fn run_shell_command_with_privilege(command: &str) -> Result<()> {
     let output = if detect_is_root_user() {
         Command::new("sh")
@@ -1194,7 +1173,6 @@ fn run_shell_command_with_privilege(command: &str) -> Result<()> {
     Ok(())
 }
 /// 执行 `ensure_runtime_dependency`。
-
 fn ensure_runtime_dependency(dependency: RuntimeDependency) -> Result<()> {
     if dependency.is_available() {
         return Ok(());
@@ -1225,7 +1203,6 @@ fn ensure_runtime_dependency(dependency: RuntimeDependency) -> Result<()> {
     Ok(())
 }
 /// 检测 runtime dependencies。
-
 fn detect_runtime_dependencies(
     install_mode: UrlInstallMode,
     downloaded_file: &Path,
@@ -1281,7 +1258,6 @@ fn detect_runtime_dependencies(
     dependencies
 }
 /// 检测 runtime from path。
-
 fn detect_runtime_from_path(path: &Path) -> Option<RuntimeDependency> {
     if let Some(extension) = path.extension().and_then(|ext| ext.to_str()) {
         let lower = extension.to_ascii_lowercase();
@@ -1296,7 +1272,6 @@ fn detect_runtime_from_path(path: &Path) -> Option<RuntimeDependency> {
     detect_runtime_from_shebang(path)
 }
 /// 检测 runtime from shebang。
-
 fn detect_runtime_from_shebang(path: &Path) -> Option<RuntimeDependency> {
     use std::io::BufRead;
 
@@ -1324,7 +1299,6 @@ fn detect_runtime_from_shebang(path: &Path) -> Option<RuntimeDependency> {
     None
 }
 /// 执行 `directory_contains_any_file_name`。
-
 fn directory_contains_any_file_name(dir: &Path, candidates: &[&str]) -> bool {
     let mut stack = vec![dir.to_path_buf()];
     let expected: Vec<String> = candidates

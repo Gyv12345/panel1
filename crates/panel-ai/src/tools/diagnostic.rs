@@ -340,7 +340,6 @@ impl DiagnosticTool {
         })
     }
     /// 获取 listening ports。
-
     fn get_listening_ports(&self) -> Result<Vec<u16>> {
         let result = self
             .shell
@@ -353,7 +352,6 @@ impl DiagnosticTool {
         Ok(ports)
     }
     /// 获取 service status。
-
     fn get_service_status(&self) -> Result<Vec<ServiceDiagnosis>> {
         let manager = panel_core::ServiceManager::new();
         let services = manager.get_services()?;
@@ -369,7 +367,6 @@ impl DiagnosticTool {
             .collect())
     }
     /// 获取 ssh config。
-
     fn get_ssh_config(&self) -> Result<SshConfig> {
         let permit_root = self
             .shell
@@ -398,7 +395,6 @@ impl DiagnosticTool {
         })
     }
     /// 获取 firewall status。
-
     fn get_firewall_status(&self) -> Result<String> {
         if let Ok(r) = self.shell.execute("ufw status 2>/dev/null | head -1") {
             if !r.stdout.is_empty() {
@@ -415,7 +411,6 @@ impl DiagnosticTool {
         Ok("Unknown".to_string())
     }
     /// 获取 open ports。
-
     fn get_open_ports(&self) -> Result<Vec<PortInfo>> {
         let result = self
             .shell

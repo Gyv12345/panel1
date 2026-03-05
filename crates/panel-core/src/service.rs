@@ -47,7 +47,6 @@ impl ServiceManager {
         }
     }
     /// 执行 `execute_systemctl`。
-
     fn execute_systemctl(&self, args: &[&str], action: &str) -> Result<std::process::Output> {
         Command::new(&self.systemctl_path)
             .args(args)
