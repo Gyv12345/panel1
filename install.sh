@@ -78,9 +78,17 @@ download_file() {
   local url="$1"
   local output="$2"
   if [[ "${DOWNLOADER}" == "curl" ]]; then
-    curl -fsSL "${url}" -o "${output}"
+    if [[ -t 2 ]]; then
+      curl -fL --progress-bar "${url}" -o "${output}"
+    else
+      curl -fsSL "${url}" -o "${output}"
+    fi
   else
-    wget -qO "${output}" "${url}"
+    if [[ -t 2 ]]; then
+      wget -O "${output}" "${url}"
+    else
+      wget -qO "${output}" "${url}"
+    fi
   fi
 }
 
@@ -90,6 +98,15 @@ download_text() {
     curl -fsSL "${url}"
   else
     wget -qO- "${url}"
+  fi
+}
+
+url_exists() {
+  local url="$1"
+  if [[ "${DOWNLOADER}" == "curl" ]]; then
+    curl -fsSIL "${url}" -o /dev/null
+  else
+    wget -q --spider "${url}"
   fi
 }
 
@@ -149,11 +166,14 @@ download_release_archive() {
     asset="panel1-${VERSION_NO_V}-${target}.tar.gz"
     url="https://github.com/${REPO}/releases/download/${TAG}/${asset}"
     archive="${TMP_DIR}/${asset}"
-    log "Trying package: ${asset}"
-    if download_file "${url}" "${archive}" >/dev/null 2>&1; then
-      TARGET="${target}"
-      RELEASE_ARCHIVE="${archive}"
-      return 0
+    log "Checking package: ${asset}"
+    if url_exists "${url}"; then
+      log "Downloading package: ${asset}"
+      if download_file "${url}" "${archive}"; then
+        TARGET="${target}"
+        RELEASE_ARCHIVE="${archive}"
+        return 0
+      fi
     fi
   done
 
