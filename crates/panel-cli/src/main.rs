@@ -302,7 +302,7 @@ fn handle_update_command(
     install_dir: Option<&str>,
     no_source_fallback: bool,
 ) -> Result<()> {
-    let installer_url = "https://raw.githubusercontent.com/Gyv12345/panel1/main/install.sh";
+    let installer_url = "https://raw.githubusercontent.com/Gyv12345/panel1/master/install.sh";
     let temp_script = build_temp_installer_path();
     let downloader = pick_downloader()?;
 

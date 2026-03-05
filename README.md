@@ -13,13 +13,13 @@
 ### 一键安装（Linux，推荐）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Gyv12345/panel1/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Gyv12345/panel1/master/install.sh | bash
 ```
 
 指定版本安装：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Gyv12345/panel1/main/install.sh | bash -s -- --version v0.1.0
+curl -fsSL https://raw.githubusercontent.com/Gyv12345/panel1/master/install.sh | bash -s -- --version v0.1.0
 ```
 
 ### 从 GitHub Releases 下载

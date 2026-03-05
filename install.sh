@@ -18,8 +18,8 @@ usage() {
 Panel1 installer (Linux)
 
 Usage:
-  curl -fsSL https://raw.githubusercontent.com/Gyv12345/panel1/main/install.sh | bash
-  curl -fsSL https://raw.githubusercontent.com/Gyv12345/panel1/main/install.sh | bash -s -- --version v0.1.0
+  curl -fsSL https://raw.githubusercontent.com/Gyv12345/panel1/master/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/Gyv12345/panel1/master/install.sh | bash -s -- --version v0.1.0
 
 Options:
   --version <vX.Y.Z|X.Y.Z|latest>  Release version (default: latest)
