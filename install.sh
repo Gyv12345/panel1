@@ -13,6 +13,7 @@ ARCH=""
 TARGET=""
 TMP_DIR=""
 HAS_RELEASE_TAG="1"
+RELEASE_ARCHIVE=""
 
 usage() {
   cat <<'EOF'
@@ -151,7 +152,7 @@ download_release_archive() {
     log "Trying package: ${asset}"
     if download_file "${url}" "${archive}" >/dev/null 2>&1; then
       TARGET="${target}"
-      printf '%s' "${archive}"
+      RELEASE_ARCHIVE="${archive}"
       return 0
     fi
   done
@@ -258,7 +259,10 @@ main() {
   fi
 
   local archive
-  if [[ "${HAS_RELEASE_TAG}" == "1" ]] && archive="$(download_release_archive)"; then
+  if [[ "${HAS_RELEASE_TAG}" == "1" ]] && download_release_archive; then
+    archive="${RELEASE_ARCHIVE}"
+    [[ -n "${archive}" ]] || die "Internal error: downloaded archive path is empty."
+    [[ -n "${TMP_DIR}" ]] || die "Internal error: temporary directory is empty."
     tar -xzf "${archive}" -C "${TMP_DIR}"
     local extracted_dir="${TMP_DIR}/panel1-${VERSION_NO_V}-${TARGET}"
     local extracted_bin="${extracted_dir}/bin/panel1"
