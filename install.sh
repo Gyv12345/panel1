@@ -6,7 +6,7 @@ INSTALL_DIR="${PANEL1_INSTALL_DIR:-/usr/local/bin}"
 REQUESTED_VERSION="${PANEL1_VERSION:-latest}"
 ALLOW_SOURCE_FALLBACK="${PANEL1_ALLOW_SOURCE_FALLBACK:-1}"
 DOWNLOAD_CONNECT_TIMEOUT="${PANEL1_DOWNLOAD_CONNECT_TIMEOUT:-10}"
-DOWNLOAD_MAX_TIME="${PANEL1_DOWNLOAD_MAX_TIME:-300}"
+DOWNLOAD_MAX_TIME="${PANEL1_DOWNLOAD_MAX_TIME:-1800}"
 DOWNLOAD_RETRIES="${PANEL1_DOWNLOAD_RETRIES:-2}"
 INSTALLER_VERSION="2026-03-05"
 
@@ -84,6 +84,7 @@ download_file() {
   if [[ "${DOWNLOADER}" == "curl" ]]; then
     if [[ -t 2 ]]; then
       curl -fL \
+        --continue-at - \
         --connect-timeout "${DOWNLOAD_CONNECT_TIMEOUT}" \
         --max-time "${DOWNLOAD_MAX_TIME}" \
         --retry "${DOWNLOAD_RETRIES}" \
@@ -91,6 +92,7 @@ download_file() {
         "${url}" -o "${output}"
     else
       curl -fsSL \
+        --continue-at - \
         --connect-timeout "${DOWNLOAD_CONNECT_TIMEOUT}" \
         --max-time "${DOWNLOAD_MAX_TIME}" \
         --retry "${DOWNLOAD_RETRIES}" \
@@ -98,9 +100,9 @@ download_file() {
     fi
   else
     if [[ -t 2 ]]; then
-      wget --timeout="${DOWNLOAD_CONNECT_TIMEOUT}" --tries="${DOWNLOAD_RETRIES}" -O "${output}" "${url}"
+      wget --continue --timeout="${DOWNLOAD_CONNECT_TIMEOUT}" --tries="${DOWNLOAD_RETRIES}" -O "${output}" "${url}"
     else
-      wget --timeout="${DOWNLOAD_CONNECT_TIMEOUT}" --tries="${DOWNLOAD_RETRIES}" -qO "${output}" "${url}"
+      wget --continue --timeout="${DOWNLOAD_CONNECT_TIMEOUT}" --tries="${DOWNLOAD_RETRIES}" -qO "${output}" "${url}"
     fi
   fi
 }
