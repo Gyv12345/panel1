@@ -3,7 +3,9 @@
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use std::io::{self, IsTerminal, Write};
+use std::process::{Command, Stdio};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Parser)]
 #[command(name = "panel1")]
@@ -33,6 +35,21 @@ enum Commands {
         /// Show detailed install logs
         #[arg(short, long)]
         verbose: bool,
+    },
+    /// Update panel1 binary via official installer script
+    Update {
+        /// Target version, e.g. v0.1.0 or latest
+        #[arg(long)]
+        version: Option<String>,
+        /// GitHub repo override, e.g. owner/name
+        #[arg(long)]
+        repo: Option<String>,
+        /// Install directory override
+        #[arg(long)]
+        install_dir: Option<String>,
+        /// Disable cargo source fallback
+        #[arg(long, default_value_t = false)]
+        no_source_fallback: bool,
     },
     /// Configure and inspect AI model settings
     Ai {
@@ -172,6 +189,19 @@ async fn main() -> Result<()> {
         }) => {
             handle_install_command(&url, name.as_deref(), mode.into(), verbose).await?;
         }
+        Some(Commands::Update {
+            version,
+            repo,
+            install_dir,
+            no_source_fallback,
+        }) => {
+            handle_update_command(
+                version.as_deref(),
+                repo.as_deref(),
+                install_dir.as_deref(),
+                no_source_fallback,
+            )?;
+        }
         Some(Commands::Ai { command }) => {
             handle_ai_command(command)?;
         }
@@ -263,6 +293,139 @@ async fn handle_install_command(
             report.error.unwrap_or_else(|| "unknown error".to_string())
         )
     }
+}
+
+/// 执行 panel1 自升级流程。
+fn handle_update_command(
+    version: Option<&str>,
+    repo: Option<&str>,
+    install_dir: Option<&str>,
+    no_source_fallback: bool,
+) -> Result<()> {
+    let installer_url = "https://raw.githubusercontent.com/Gyv12345/panel1/main/install.sh";
+    let temp_script = build_temp_installer_path();
+    let downloader = pick_downloader()?;
+
+    println!("Downloading installer script...");
+    download_installer_script(installer_url, &temp_script, downloader)?;
+
+    println!("Running installer for update...");
+    let mut command = Command::new("bash");
+    command.arg(&temp_script);
+
+    if let Some(version) = version {
+        command.arg("--version").arg(version);
+    }
+    if let Some(repo) = repo {
+        command.arg("--repo").arg(repo);
+    }
+    if let Some(install_dir) = install_dir {
+        command.arg("--install-dir").arg(install_dir);
+    }
+    if no_source_fallback {
+        command.arg("--no-source-fallback");
+    }
+
+    command
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+
+    let status = command
+        .status()
+        .context("failed to execute installer script for update")?;
+
+    let _ = std::fs::remove_file(&temp_script);
+
+    if !status.success() {
+        bail!("update command failed (installer exited with non-zero status)");
+    }
+
+    println!("Update completed. Current version:");
+    let version_status = Command::new("panel1")
+        .arg("--version")
+        .stdin(Stdio::null())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+        .context("failed to run `panel1 --version` after update")?;
+
+    if !version_status.success() {
+        bail!("update succeeded but failed to verify version output");
+    }
+
+    Ok(())
+}
+
+/// 选择可用下载器（curl 优先，其次 wget）。
+fn pick_downloader() -> Result<&'static str> {
+    if command_exists("curl") {
+        return Ok("curl");
+    }
+    if command_exists("wget") {
+        return Ok("wget");
+    }
+    bail!("curl or wget is required for update command");
+}
+
+/// 检查命令是否存在于当前 PATH。
+fn command_exists(name: &str) -> bool {
+    std::env::var_os("PATH")
+        .map(|paths| {
+            std::env::split_paths(&paths).any(|dir| {
+                let candidate = dir.join(name);
+                candidate.is_file()
+            })
+        })
+        .unwrap_or(false)
+}
+
+/// 生成临时安装脚本路径。
+fn build_temp_installer_path() -> std::path::PathBuf {
+    let now_nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    std::env::temp_dir().join(format!(
+        "panel1-install-{}-{now_nanos}.sh",
+        std::process::id()
+    ))
+}
+
+/// 下载安装脚本到本地临时文件。
+fn download_installer_script(
+    installer_url: &str,
+    target_path: &std::path::Path,
+    downloader: &str,
+) -> Result<()> {
+    let status = if downloader == "curl" {
+        Command::new("curl")
+            .arg("-fsSL")
+            .arg(installer_url)
+            .arg("-o")
+            .arg(target_path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .status()
+            .context("failed to run curl for installer script")?
+    } else {
+        Command::new("wget")
+            .arg("-qO")
+            .arg(target_path)
+            .arg(installer_url)
+            .stdin(Stdio::null())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .status()
+            .context("failed to run wget for installer script")?
+    };
+
+    if !status.success() {
+        bail!("failed to download installer script from {}", installer_url);
+    }
+
+    Ok(())
 }
 
 /// 处理 AI 子命令。

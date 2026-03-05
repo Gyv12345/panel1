@@ -62,6 +62,10 @@ panel1 install https://example.com/my-tool --name my-tool
 panel1 install https://example.com/compose.zip --mode docker
 panel1 install https://example.com/tool.tar.gz --verbose
 
+# 升级 panel1（复用官方 install.sh）
+panel1 update
+panel1 update --version v0.1.0
+
 # AI 配置（首次推荐执行）
 panel1 ai seed-presets
 panel1 ai config
@@ -179,6 +183,16 @@ panel1 ai profiles remove old-profile
 3. 分析并自动补齐依赖（Docker/Node/Python）
 4. 自动重试和基础自修复
 5. 写入本地服务目录并设置可执行权限
+
+## 升级说明
+
+`panel1 update` 会下载并执行官方 `install.sh`，用于升级当前 `panel1` 二进制。
+
+常用参数：
+- `--version <tag>`：升级/回退到指定版本（如 `v0.1.0`）
+- `--repo <owner/name>`：切换安装仓库源
+- `--install-dir <path>`：指定安装目录
+- `--no-source-fallback`：禁用源码回退安装
 
 ## Linux 兼容性
 
