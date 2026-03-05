@@ -127,6 +127,7 @@ impl<'a> ProgressBar<'a> {
 }
 
 impl Default for ProgressBar<'_> {
+    /// 返回默认实例。
     fn default() -> Self {
         Self::new()
     }

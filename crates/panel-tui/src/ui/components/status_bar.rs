@@ -114,6 +114,7 @@ impl StatusBar {
 }
 
 impl Default for StatusBar {
+    /// 返回默认实例。
     fn default() -> Self {
         Self::new()
     }

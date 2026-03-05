@@ -124,6 +124,7 @@ pub enum ServiceStatusColor {
 mod tests {
     use super::*;
 
+    /// 测试：验证 usage color。
     #[test]
     fn test_usage_color() {
         assert_eq!(CatppuccinMocha::usage_color(30.0), CatppuccinMocha::GREEN);

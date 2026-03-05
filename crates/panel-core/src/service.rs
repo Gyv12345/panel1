@@ -46,6 +46,7 @@ impl ServiceManager {
             systemctl_path: "systemctl".to_string(),
         }
     }
+    /// 执行 `execute_systemctl`。
 
     fn execute_systemctl(&self, args: &[&str], action: &str) -> Result<std::process::Output> {
         Command::new(&self.systemctl_path)
@@ -258,6 +259,7 @@ impl ServiceManager {
 }
 
 impl Default for ServiceManager {
+    /// 返回默认实例。
     fn default() -> Self {
         Self::new()
     }

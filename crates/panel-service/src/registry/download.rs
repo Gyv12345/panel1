@@ -90,6 +90,7 @@ pub struct DownloadConfig {
     /// 最大重试次数
     pub max_retries: u32,
 }
+/// 解析 cache root dir。
 
 fn resolve_cache_root_dir() -> PathBuf {
     if let Ok(cache_dir) = std::env::var("PANEL_CACHE_DIR") {
@@ -108,6 +109,7 @@ fn resolve_cache_root_dir() -> PathBuf {
 }
 
 impl Default for DownloadConfig {
+    /// 返回默认实例。
     fn default() -> Self {
         Self {
             cache_dir: resolve_cache_root_dir().join("downloads"),
@@ -434,6 +436,7 @@ fn generate_cache_filename(url: &str) -> String {
 mod tests {
     use super::*;
 
+    /// 测试：验证 format size。
     #[test]
     fn test_format_size() {
         assert_eq!(format_size(500), "500 B");
@@ -442,6 +445,7 @@ mod tests {
         assert_eq!(format_size(1048576), "1.00 MB");
     }
 
+    /// 测试：验证 download progress。
     #[test]
     fn test_download_progress() {
         let progress = DownloadProgress::new(500, Some(1000));
@@ -450,6 +454,7 @@ mod tests {
         assert_eq!(progress.percent, Some(50.0));
     }
 
+    /// 测试：验证 generate cache filename。
     #[test]
     fn test_generate_cache_filename() {
         let url = "https://example.com/file.tar.gz";

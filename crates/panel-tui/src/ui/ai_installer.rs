@@ -20,6 +20,7 @@ enum FieldFocus {
     Url,
     Name,
     Mode,
+    Profile,
 }
 
 /// AI 安装 Agent 面板
@@ -31,14 +32,17 @@ pub struct AiInstallerPanel {
     installing: bool,
     logs: Vec<String>,
     installer: InstallerAgent,
+    profile_names: Vec<String>,
+    active_profile_idx: Option<usize>,
 }
 
 impl AiInstallerPanel {
     /// 创建新面板
     pub fn new() -> Self {
         let provider: Arc<dyn LlmProvider> = Arc::new(panel_ai::ClaudeProvider::new());
+        let installer = InstallerAgent::new(provider);
 
-        Self {
+        let mut panel = Self {
             url_input: String::new(),
             name_input: String::new(),
             install_mode: InstallMode::Auto,
@@ -48,7 +52,100 @@ impl AiInstallerPanel {
                 "欢迎使用 AI 安装 Agent".to_string(),
                 "输入工具 URL 后按 Enter 开始安装".to_string(),
             ],
-            installer: InstallerAgent::new(provider),
+            installer,
+            profile_names: Vec::new(),
+            active_profile_idx: None,
+        };
+
+        panel.refresh_profiles();
+        panel
+    }
+
+    /// 刷新本地 profile 缓存。
+    fn refresh_profiles(&mut self) {
+        match panel_ai::load_ai_store() {
+            Ok(store) => {
+                self.profile_names = store
+                    .profiles
+                    .iter()
+                    .map(|profile| profile.name.clone())
+                    .collect();
+                self.active_profile_idx = self
+                    .profile_names
+                    .iter()
+                    .position(|name| *name == store.active_profile);
+            }
+            Err(err) => {
+                self.logs.push(format!("读取 AI profile 失败: {}", err));
+                self.profile_names.clear();
+                self.active_profile_idx = None;
+            }
+        }
+    }
+
+    /// 返回当前 active profile 显示文本。
+    fn active_profile_label(&self) -> String {
+        if self.profile_names.is_empty() {
+            return "未配置（先运行 panel1 ai seed-presets / panel1 ai config）".to_string();
+        }
+
+        let index = self.active_profile_idx.unwrap_or(0);
+        let shown = index + 1;
+        let total = self.profile_names.len();
+        let name = self
+            .profile_names
+            .get(index)
+            .cloned()
+            .unwrap_or_else(|| "unknown".to_string());
+        format!("{name} ({shown}/{total})")
+    }
+
+    /// 切换 profile 并写回配置。
+    fn cycle_profile(&mut self, forward: bool) {
+        if self.profile_names.is_empty() {
+            self.logs
+                .push("未检测到任何 profile，请先运行 panel1 ai seed-presets".to_string());
+            return;
+        }
+
+        if self.profile_names.len() == 1 {
+            self.logs.push("当前只有一个 profile，无需切换".to_string());
+            return;
+        }
+
+        let current = self.active_profile_idx.unwrap_or(0);
+        let total = self.profile_names.len();
+        let next = if forward {
+            (current + 1) % total
+        } else {
+            (current + total - 1) % total
+        };
+
+        let target_name = self.profile_names[next].clone();
+        match panel_ai::load_ai_store() {
+            Ok(mut store) => {
+                if !store.set_active_profile(&target_name) {
+                    self.logs
+                        .push(format!("切换 profile 失败，未找到: {}", target_name));
+                    return;
+                }
+
+                if let Err(err) = panel_ai::save_ai_store(&store) {
+                    self.logs.push(format!("保存 active profile 失败: {}", err));
+                    return;
+                }
+
+                self.active_profile_idx = Some(next);
+                self.logs
+                    .push(format!("已切换 AI profile: {}", target_name));
+
+                // 重新初始化 Provider，使切换立即生效。
+                let provider: Arc<dyn LlmProvider> = Arc::new(panel_ai::ClaudeProvider::new());
+                self.installer = InstallerAgent::new(provider);
+            }
+            Err(err) => {
+                self.logs.push(format!("加载 AI 配置失败: {}", err));
+            }
         }
     }
 
@@ -63,26 +160,36 @@ impl AiInstallerPanel {
                 self.focus = match self.focus {
                     FieldFocus::Url => FieldFocus::Name,
                     FieldFocus::Name => FieldFocus::Mode,
-                    FieldFocus::Mode => FieldFocus::Url,
+                    FieldFocus::Mode => FieldFocus::Profile,
+                    FieldFocus::Profile => FieldFocus::Url,
                 };
             }
             KeyCode::Up => {
                 self.focus = match self.focus {
-                    FieldFocus::Url => FieldFocus::Mode,
+                    FieldFocus::Url => FieldFocus::Profile,
                     FieldFocus::Name => FieldFocus::Url,
                     FieldFocus::Mode => FieldFocus::Name,
+                    FieldFocus::Profile => FieldFocus::Mode,
                 };
             }
-            KeyCode::Left => {
-                if self.focus == FieldFocus::Mode {
+            KeyCode::Left => match self.focus {
+                FieldFocus::Mode => {
                     self.install_mode = prev_install_mode(self.install_mode);
                 }
-            }
-            KeyCode::Right => {
-                if self.focus == FieldFocus::Mode {
+                FieldFocus::Profile => {
+                    self.cycle_profile(false);
+                }
+                _ => {}
+            },
+            KeyCode::Right => match self.focus {
+                FieldFocus::Mode => {
                     self.install_mode = next_install_mode(self.install_mode);
                 }
-            }
+                FieldFocus::Profile => {
+                    self.cycle_profile(true);
+                }
+                _ => {}
+            },
             KeyCode::Backspace => match self.focus {
                 FieldFocus::Url => {
                     self.url_input.pop();
@@ -90,12 +197,13 @@ impl AiInstallerPanel {
                 FieldFocus::Name => {
                     self.name_input.pop();
                 }
-                FieldFocus::Mode => {}
+                FieldFocus::Mode | FieldFocus::Profile => {}
             },
             KeyCode::Esc => match self.focus {
                 FieldFocus::Url => self.url_input.clear(),
                 FieldFocus::Name => self.name_input.clear(),
                 FieldFocus::Mode => self.install_mode = InstallMode::Auto,
+                FieldFocus::Profile => self.refresh_profiles(),
             },
             KeyCode::Enter => {
                 if self.url_input.trim().is_empty() {
@@ -112,6 +220,11 @@ impl AiInstallerPanel {
                         self.install_mode = next_install_mode(self.install_mode);
                     }
                 }
+                FieldFocus::Profile => {
+                    if c == 'p' || c == 'P' {
+                        self.cycle_profile(true);
+                    }
+                }
             },
             _ => {}
         }
@@ -119,10 +232,11 @@ impl AiInstallerPanel {
         Ok(())
     }
 
+    /// 执行安装流程。
     async fn install(&mut self) -> Result<()> {
         self.installing = true;
         self.logs
-            .push(format!("开始安装: {}", self.url_input.trim().to_string()));
+            .push(format!("开始安装: {}", self.url_input.trim()));
 
         let preferred_name = if self.name_input.trim().is_empty() {
             None
@@ -170,6 +284,7 @@ impl AiInstallerPanel {
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
+                Constraint::Length(3),
                 Constraint::Length(2),
                 Constraint::Min(0),
             ])
@@ -196,10 +311,18 @@ impl AiInstallerPanel {
             install_mode_label(self.install_mode),
             self.focus == FieldFocus::Mode,
         );
-        self.draw_hint(f, chunks[3]);
-        self.draw_logs(f, chunks[4]);
+        self.draw_input_line(
+            f,
+            chunks[3],
+            "AI Profile",
+            &self.active_profile_label(),
+            self.focus == FieldFocus::Profile,
+        );
+        self.draw_hint(f, chunks[4]);
+        self.draw_logs(f, chunks[5]);
     }
 
+    /// 绘制单行输入。
     fn draw_input_line(&self, f: &mut Frame, area: Rect, title: &str, value: &str, focused: bool) {
         let block = Block::default()
             .title(format!(" {} ", title))
@@ -232,16 +355,17 @@ impl AiInstallerPanel {
         f.render_widget(paragraph, area);
     }
 
+    /// 绘制快捷键提示。
     fn draw_hint(&self, f: &mut Frame, area: Rect) {
         let mut spans = vec![
             Span::styled("[Tab/↑↓] ", Theme::accent()),
             Span::styled("切换输入  ", Theme::text()),
             Span::styled("[Enter] ", Theme::accent()),
             Span::styled("开始安装  ", Theme::text()),
-            Span::styled("[Esc] ", Theme::accent()),
-            Span::styled("清空当前输入  ", Theme::text()),
             Span::styled("[m/←→] ", Theme::accent()),
-            Span::styled("切换安装方案", Theme::text()),
+            Span::styled("切换安装方案/模型档  ", Theme::text()),
+            Span::styled("[p] ", Theme::accent()),
+            Span::styled("切换 AI Profile", Theme::text()),
         ];
 
         if self.installing {
@@ -252,6 +376,7 @@ impl AiInstallerPanel {
         f.render_widget(paragraph, area);
     }
 
+    /// 绘制日志列表。
     fn draw_logs(&self, f: &mut Frame, area: Rect) {
         let block = Block::default()
             .title(" Agent 日志 ")
@@ -274,11 +399,13 @@ impl AiInstallerPanel {
 }
 
 impl Default for AiInstallerPanel {
+    /// 返回默认实例。
     fn default() -> Self {
         Self::new()
     }
 }
 
+/// 返回安装模式显示文本。
 fn install_mode_label(mode: InstallMode) -> &'static str {
     match mode {
         InstallMode::Auto => "auto（自动检测依赖）",
@@ -287,6 +414,7 @@ fn install_mode_label(mode: InstallMode) -> &'static str {
     }
 }
 
+/// 切换到下一个安装模式。
 fn next_install_mode(mode: InstallMode) -> InstallMode {
     match mode {
         InstallMode::Auto => InstallMode::Panel1,
@@ -295,6 +423,7 @@ fn next_install_mode(mode: InstallMode) -> InstallMode {
     }
 }
 
+/// 切换到上一个安装模式。
 fn prev_install_mode(mode: InstallMode) -> InstallMode {
     match mode {
         InstallMode::Auto => InstallMode::Docker,

@@ -118,6 +118,7 @@ pub struct PackageVersion {
     #[serde(default)]
     pub changelog: Option<String>,
 }
+/// 执行 `default_true`。
 
 fn default_true() -> bool {
     true
@@ -141,6 +142,7 @@ pub struct Artifact {
     #[serde(default = "default_archive_format")]
     pub archive_format: String,
 }
+/// 执行 `default_archive_format`。
 
 fn default_archive_format() -> String {
     "tar.gz".to_string()
@@ -269,6 +271,7 @@ pub fn current_system_info() -> (&'static str, &'static str) {
 mod tests {
     use super::*;
 
+    /// 测试：验证 package category serde。
     #[test]
     fn test_package_category_serde() {
         let json = r#""runtime""#;
@@ -280,6 +283,7 @@ mod tests {
         assert_eq!(category, PackageCategory::Database);
     }
 
+    /// 测试：验证 package summary serde。
     #[test]
     fn test_package_summary_serde() {
         let json = r#"{
@@ -297,6 +301,7 @@ mod tests {
         assert_eq!(summary.category, PackageCategory::Runtime);
     }
 
+    /// 测试：验证 cached index expiration。
     #[test]
     fn test_cached_index_expiration() {
         let index = PackageIndex {

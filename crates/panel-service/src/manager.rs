@@ -236,6 +236,7 @@ impl ServiceManager {
 }
 
 impl Default for ServiceManager {
+    /// 返回默认实例。
     fn default() -> Self {
         Self::new()
     }

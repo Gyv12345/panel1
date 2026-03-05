@@ -58,6 +58,7 @@ impl SystemdBackend {
 }
 
 impl Default for SystemdBackend {
+    /// 返回默认实例。
     fn default() -> Self {
         Self::new()
     }

@@ -61,7 +61,102 @@ panel1 install https://example.com/tool.tar.gz
 panel1 install https://example.com/my-tool --name my-tool
 panel1 install https://example.com/compose.zip --mode docker
 panel1 install https://example.com/tool.tar.gz --verbose
+
+# AI 配置（首次推荐执行）
+panel1 ai seed-presets
+panel1 ai config
+panel1 ai show
+panel1 ai set-model deepseek-chat
+panel1 ai profiles list
 ```
+
+## AI 模型配置
+
+- Panel1 会把 AI 配置持久化到：`~/.panel1/ai.toml`
+- 支持多个 `profiles`，可随时切换 active profile
+- 首次执行安装命令且未配置时，会提示你是否立即配置
+- 配置一次后，后续不需要重复输入
+
+### 配置命令
+
+```bash
+# 交互式配置（推荐）
+panel1 ai config
+
+# 导入内置模型模板（多 profile）
+panel1 ai seed-presets
+
+# 非交互配置（适合脚本）
+panel1 ai config \
+  --profile deepseek-prod \
+  --protocol openai \
+  --base-url https://api.example.com/v1 \
+  --api-key sk-xxxx \
+  --model deepseek-chat
+
+# 从内置模板创建 profile
+panel1 ai config \
+  --profile kimi-prod \
+  --preset moonshot-kimi-k2-5 \
+  --api-key sk-xxxx \
+  --activate
+
+# 使用智谱国内版 GLM-5 预设
+panel1 ai config \
+  --profile zhipu-plan \
+  --preset zhipu-plan-cn \
+  --api-key sk-xxxx \
+  --activate
+
+# 查看当前配置（API Key 自动脱敏）
+panel1 ai show
+
+# 仅切换模型
+panel1 ai set-model qwen-plus
+
+# profile 管理
+panel1 ai profiles list
+panel1 ai profiles use deepseek-chat
+panel1 ai profiles remove old-profile
+```
+
+### TUI 快速切换
+
+在 TUI 的 AI 安装页中：
+- `Tab / ↑↓` 切换输入焦点
+- 焦点在 `AI Profile` 时可用 `←→` 切换 profile
+- 也可按 `p` 快速切换 profile（会持久化保存）
+
+### 可用协议
+
+- `openai`：OpenAI 兼容协议（国内大多数模型网关）
+- `anthropic`：Anthropic 兼容协议
+
+### 内置模型模板
+
+内置模板参考 OpenClaw Wizard 的 Provider 指引，预置了常见组合（可自行修改）：
+
+- `openrouter-claude45`
+- `openrouter-deepseek-r1`
+- `moonshot-kimi-k2-5`
+- `moonshot-cn-kimi-k2-5`
+- `minimax-m2.5-anthropic`
+- `deepseek-chat`
+- `deepseek-reasoner`
+- `qwen-plus`
+- `zhipu-plan-cn`（`glm-5`，Anthropic 协议，`https://open.bigmodel.cn/api/anthropic`）
+- `glm-4.5`
+
+### 环境变量（`PANEL1_AI_*`）
+
+当设置以下变量时，会覆盖本地配置文件：
+
+- `PANEL1_AI_PROTOCOL`：`openai` 或 `anthropic`
+- `PANEL1_AI_BASE_URL`：模型服务地址（可选）
+- `PANEL1_AI_API_KEY`：访问密钥
+- `PANEL1_AI_MODEL`：模型名称
+
+兼容性说明：当前版本仍兼容旧变量（`CLAUDE_*` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`），但推荐统一使用 `PANEL1_AI_*`。
 
 ## TUI 界面
 
@@ -70,7 +165,8 @@ panel1 install https://example.com/tool.tar.gz --verbose
 | `1` | 服务器监控 |
 | `2` | AI 安装 Agent |
 | `Tab` / `↑↓` | AI 页切换输入项 |
-| `m` / `←→` | 切换安装方案（auto/panel1/docker） |
+| `m` / `←→` | 切换安装方案（auto/panel1/docker）或 AI Profile |
+| `p` | 快速切换 AI Profile |
 | `Enter` | 提交 URL 并自动安装 |
 | `?` | 帮助 |
 | `q` | 退出 |
@@ -99,6 +195,56 @@ crates/
 ├── panel-tui/       # TUI 终端界面
 └── panel-cli/       # CLI 入口
 ```
+
+## 架构图
+
+### Workspace 依赖关系
+
+```mermaid
+graph TD
+    CLI[panel-cli]
+    CORE[panel-core]
+    SERVICE[panel-service]
+    AI[panel-ai]
+    TUI[panel-tui]
+
+    CLI --> CORE
+    CLI --> SERVICE
+    CLI --> AI
+    CLI --> TUI
+
+    TUI --> CORE
+    TUI --> SERVICE
+    TUI --> AI
+
+    SERVICE --> CORE
+    AI --> CORE
+    AI --> SERVICE
+```
+
+### 安装链路（panel1 install / TUI 安装）
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant CLI as panel-cli / TUI
+    participant AI as panel-ai::InstallerAgent
+    participant SVC as panel-service::ServiceManager
+    participant BIN as panel-service::BinaryBackend
+    participant Host as 主机依赖环境
+
+    User->>CLI: 输入 URL + 安装模式
+    CLI->>AI: install_from_url(url, name, mode)
+    AI->>SVC: install_service_from_url(...)
+    SVC->>BIN: install_from_url(...)
+    BIN->>Host: 检测/补齐 Docker/Node/Python
+    BIN-->>SVC: ManagedService
+    SVC-->>AI: 安装结果
+    AI-->>CLI: 安装报告与日志
+    CLI-->>User: 成功/失败提示
+```
+
+> 说明：`mode=auto` 会自动检测依赖；`mode=panel1` 偏向二进制直装；`mode=docker` 强制 Docker 路径并优先检查 Docker 环境。
 
 ## 开发
 

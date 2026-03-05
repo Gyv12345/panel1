@@ -45,6 +45,7 @@ pub enum UrlInstallMode {
 }
 
 impl UrlInstallMode {
+    /// 执行 `as_str`。
     pub fn as_str(&self) -> &'static str {
         match self {
             UrlInstallMode::Auto => "auto",
@@ -55,6 +56,7 @@ impl UrlInstallMode {
 }
 
 impl Default for UrlInstallMode {
+    /// 返回默认实例。
     fn default() -> Self {
         Self::Auto
     }
@@ -107,6 +109,7 @@ impl ProcessGuard {
 }
 
 impl Default for ProcessGuard {
+    /// 返回默认实例。
     fn default() -> Self {
         Self::new()
     }
@@ -123,18 +126,21 @@ pub struct BinaryBackend {
     /// 下载管理器
     downloader: Option<DownloadManager>,
 }
+/// 执行 `read_env_non_empty`。
 
 fn read_env_non_empty(key: &str) -> Option<String> {
     std::env::var(key)
         .ok()
         .filter(|value| !value.trim().is_empty())
 }
+/// 检测 is root user。
 
 fn detect_is_root_user() -> bool {
     read_env_non_empty("EUID").as_deref() == Some("0")
         || read_env_non_empty("UID").as_deref() == Some("0")
         || read_env_non_empty("USER").as_deref() == Some("root")
 }
+/// 解析 default data dir。
 
 fn resolve_default_data_dir(
     panel_service_dir: Option<&str>,
@@ -161,6 +167,7 @@ fn resolve_default_data_dir(
 
     PathBuf::from(".panel1/services")
 }
+/// 执行 `ensure_writable_dir`。
 
 fn ensure_writable_dir(path: &Path) -> bool {
     if std::fs::create_dir_all(path).is_err() {
@@ -176,6 +183,7 @@ fn ensure_writable_dir(path: &Path) -> bool {
         Err(_) => false,
     }
 }
+/// 解析 writable data dir。
 
 fn resolve_writable_data_dir(primary: PathBuf, fallback_base: &Path) -> PathBuf {
     if ensure_writable_dir(&primary) {
@@ -453,6 +461,7 @@ impl BinaryBackend {
         Err(last_error.unwrap_or_else(|| anyhow::anyhow!("install from URL failed")))
             .with_context(|| format!("Failed to install service from URL: {}", raw_url))
     }
+    /// 安装 from url once。
 
     async fn install_from_url_once(
         &self,
@@ -520,6 +529,7 @@ impl BinaryBackend {
             auto_start: false,
         })
     }
+    /// 执行 `heal_install_directory`。
 
     async fn heal_install_directory(&self, service_dir: &Path) {
         let _ = tokio::fs::create_dir_all(service_dir).await;
@@ -640,6 +650,7 @@ impl BinaryBackend {
 }
 
 impl Default for BinaryBackend {
+    /// 返回默认实例。
     fn default() -> Self {
         Self::new()
     }
@@ -652,11 +663,13 @@ mod tests {
         resolve_writable_data_dir, BinaryBackend, RuntimeDependency, UrlInstallMode,
     };
     use std::path::{Path, PathBuf};
+    /// 执行 `path_eq`。
 
     fn path_eq(actual: &Path, expected: &str) -> bool {
         actual == PathBuf::from(expected)
     }
 
+    /// 解析 default data dir prefers panel service dir env。
     #[test]
     fn resolve_default_data_dir_prefers_panel_service_dir_env() {
         let path = resolve_default_data_dir(
@@ -669,6 +682,7 @@ mod tests {
         assert!(path_eq(&path, "/tmp/custom-services"));
     }
 
+    /// 解析 default data dir uses panel data dir when set。
     #[test]
     fn resolve_default_data_dir_uses_panel_data_dir_when_set() {
         let path = resolve_default_data_dir(
@@ -681,18 +695,21 @@ mod tests {
         assert_eq!(path, PathBuf::from("/tmp/panel-data/services"));
     }
 
+    /// 解析 default data dir uses opt panel for linux root。
     #[test]
     fn resolve_default_data_dir_uses_opt_panel_for_linux_root() {
         let path = resolve_default_data_dir(None, None, Some("/tmp/home"), true, true);
         assert_eq!(path, PathBuf::from("/opt/panel/services"));
     }
 
+    /// 解析 default data dir falls back to user home。
     #[test]
     fn resolve_default_data_dir_falls_back_to_user_home() {
         let path = resolve_default_data_dir(None, None, Some("/tmp/home"), false, true);
         assert_eq!(path, PathBuf::from("/tmp/home/.panel1/services"));
     }
 
+    /// 解析 writable data dir falls back when primary is unwritable。
     #[cfg(unix)]
     #[test]
     fn resolve_writable_data_dir_falls_back_when_primary_is_unwritable() {
@@ -701,6 +718,7 @@ mod tests {
         assert_eq!(path, fallback_base.join(".panel1/services"));
     }
 
+    /// 解析 writable data dir falls back when primary exists but not writable。
     #[cfg(unix)]
     #[test]
     fn resolve_writable_data_dir_falls_back_when_primary_exists_but_not_writable() {
@@ -722,6 +740,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&base);
     }
 
+    /// 执行 `new_backend_uses_writable_fallback_dir`。
     #[cfg(unix)]
     #[test]
     fn new_backend_uses_writable_fallback_dir() {
@@ -750,6 +769,7 @@ mod tests {
         }
     }
 
+    /// 执行 `infer_service_name_from_archive_url`。
     #[test]
     fn infer_service_name_from_archive_url() {
         assert_eq!(
@@ -758,6 +778,7 @@ mod tests {
         );
     }
 
+    /// 执行 `normalize_url_adds_https`。
     #[test]
     fn normalize_url_adds_https() {
         assert_eq!(
@@ -766,6 +787,7 @@ mod tests {
         );
     }
 
+    /// 检测 runtime from extension。
     #[test]
     fn detect_runtime_from_extension() {
         assert_eq!(
@@ -778,6 +800,7 @@ mod tests {
         );
     }
 
+    /// 检测 runtime from shebang script。
     #[test]
     fn detect_runtime_from_shebang_script() {
         let path = std::env::temp_dir().join("panel1-runtime-detect.py");
@@ -789,6 +812,7 @@ mod tests {
         let _ = std::fs::remove_file(path);
     }
 
+    /// 检测 runtime dependencies respects docker mode。
     #[test]
     fn detect_runtime_dependencies_respects_docker_mode() {
         let base = std::env::temp_dir().join("panel1-runtime-detect-dir");
@@ -818,6 +842,7 @@ fn extract_filename(url: &str) -> String {
         .unwrap_or("binary")
         .to_string()
 }
+/// 执行 `normalize_url`。
 
 fn normalize_url(raw_url: &str) -> String {
     let trimmed = raw_url.trim();
@@ -826,6 +851,7 @@ fn normalize_url(raw_url: &str) -> String {
     }
     format!("https://{}", trimmed)
 }
+/// 执行 `sanitize_service_name`。
 
 fn sanitize_service_name(name: &str) -> String {
     name.trim()
@@ -841,6 +867,7 @@ fn sanitize_service_name(name: &str) -> String {
         .trim_matches('-')
         .to_ascii_lowercase()
 }
+/// 执行 `infer_service_name`。
 
 fn infer_service_name(url: &str) -> String {
     let mut filename = extract_filename(url).to_ascii_lowercase();
@@ -859,6 +886,7 @@ fn infer_service_name(url: &str) -> String {
         candidate
     }
 }
+/// 判断是否 archive file。
 
 fn is_archive_file(filename: &str) -> bool {
     let lower = filename.to_ascii_lowercase();
@@ -867,6 +895,7 @@ fn is_archive_file(filename: &str) -> bool {
         || lower.ends_with(".tar")
         || lower.ends_with(".zip")
 }
+/// 执行 `extract_archive`。
 
 fn extract_archive(archive_path: &Path, target_dir: &Path) -> Result<()> {
     let file = archive_path.to_string_lossy().to_string();
@@ -905,6 +934,7 @@ fn extract_archive(archive_path: &Path, target_dir: &Path) -> Result<()> {
 
     Ok(())
 }
+/// 执行 `download_to_file`。
 
 async fn download_to_file(url: &str, target_path: &Path) -> Result<()> {
     let client = Client::builder()
@@ -934,6 +964,7 @@ async fn download_to_file(url: &str, target_path: &Path) -> Result<()> {
 
     Ok(())
 }
+/// 查找 first regular file。
 
 fn find_first_regular_file(dir: &Path) -> Option<PathBuf> {
     let mut stack = vec![dir.to_path_buf()];
@@ -950,6 +981,7 @@ fn find_first_regular_file(dir: &Path) -> Option<PathBuf> {
     }
     None
 }
+/// 查找 executable。
 
 fn find_executable(dir: &Path, preferred_name: &str) -> Option<PathBuf> {
     let mut stack = vec![dir.to_path_buf()];
@@ -997,6 +1029,7 @@ fn find_executable(dir: &Path, preferred_name: &str) -> Option<PathBuf> {
 
     best.map(|(_, path)| path)
 }
+/// 设置 executable permission。
 
 async fn set_executable_permission(path: &Path) -> Result<()> {
     #[cfg(unix)]
@@ -1017,6 +1050,7 @@ enum RuntimeDependency {
 }
 
 impl RuntimeDependency {
+    /// 执行 `display_name`。
     fn display_name(&self) -> &'static str {
         match self {
             RuntimeDependency::Docker => "docker",
@@ -1024,6 +1058,7 @@ impl RuntimeDependency {
             RuntimeDependency::Python => "python",
         }
     }
+    /// 判断是否 available。
 
     fn is_available(&self) -> bool {
         match self {
@@ -1045,6 +1080,7 @@ enum LinuxPackageManager {
 }
 
 impl LinuxPackageManager {
+    /// 执行 `detect`。
     fn detect() -> Option<Self> {
         if command_exists("apt-get") {
             return Some(Self::Apt);
@@ -1067,6 +1103,7 @@ impl LinuxPackageManager {
         None
     }
 }
+/// 执行 `command_exists`。
 
 fn command_exists(command: &str) -> bool {
     std::env::var_os("PATH")
@@ -1078,6 +1115,7 @@ fn command_exists(command: &str) -> bool {
         })
         .unwrap_or(false)
 }
+/// 执行 `dependency_install_command`。
 
 fn dependency_install_command(
     dependency: RuntimeDependency,
@@ -1124,6 +1162,7 @@ fn dependency_install_command(
         (RuntimeDependency::Python, LinuxPackageManager::Apk) => "apk add python3 py3-pip",
     }
 }
+/// 运行 shell command with privilege。
 
 fn run_shell_command_with_privilege(command: &str) -> Result<()> {
     let output = if detect_is_root_user() {
@@ -1154,6 +1193,7 @@ fn run_shell_command_with_privilege(command: &str) -> Result<()> {
 
     Ok(())
 }
+/// 执行 `ensure_runtime_dependency`。
 
 fn ensure_runtime_dependency(dependency: RuntimeDependency) -> Result<()> {
     if dependency.is_available() {
@@ -1184,6 +1224,7 @@ fn ensure_runtime_dependency(dependency: RuntimeDependency) -> Result<()> {
 
     Ok(())
 }
+/// 检测 runtime dependencies。
 
 fn detect_runtime_dependencies(
     install_mode: UrlInstallMode,
@@ -1239,6 +1280,7 @@ fn detect_runtime_dependencies(
 
     dependencies
 }
+/// 检测 runtime from path。
 
 fn detect_runtime_from_path(path: &Path) -> Option<RuntimeDependency> {
     if let Some(extension) = path.extension().and_then(|ext| ext.to_str()) {
@@ -1253,6 +1295,7 @@ fn detect_runtime_from_path(path: &Path) -> Option<RuntimeDependency> {
 
     detect_runtime_from_shebang(path)
 }
+/// 检测 runtime from shebang。
 
 fn detect_runtime_from_shebang(path: &Path) -> Option<RuntimeDependency> {
     use std::io::BufRead;
@@ -1280,6 +1323,7 @@ fn detect_runtime_from_shebang(path: &Path) -> Option<RuntimeDependency> {
 
     None
 }
+/// 执行 `directory_contains_any_file_name`。
 
 fn directory_contains_any_file_name(dir: &Path, candidates: &[&str]) -> bool {
     let mut stack = vec![dir.to_path_buf()];

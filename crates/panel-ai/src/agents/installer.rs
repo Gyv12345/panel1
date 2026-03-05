@@ -202,6 +202,7 @@ impl InstallerAgent {
         })
     }
 }
+/// 执行 `normalize_url`。
 
 fn normalize_url(raw_url: &str) -> String {
     let trimmed = raw_url.trim();
@@ -215,6 +216,7 @@ fn normalize_url(raw_url: &str) -> String {
 mod tests {
     use super::normalize_url;
 
+    /// 执行 `normalize_url_keeps_explicit_scheme`。
     #[test]
     fn normalize_url_keeps_explicit_scheme() {
         assert_eq!(
@@ -227,6 +229,7 @@ mod tests {
         );
     }
 
+    /// 执行 `normalize_url_adds_https_by_default`。
     #[test]
     fn normalize_url_adds_https_by_default() {
         assert_eq!(

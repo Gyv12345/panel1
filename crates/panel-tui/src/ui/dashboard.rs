@@ -78,6 +78,7 @@ impl Dashboard {
         // 磁盘信息
         self.draw_disk_table(f, chunks[3], &disk_info);
     }
+    /// 绘制 overview row。
 
     fn draw_overview_row(
         &self,
@@ -114,6 +115,7 @@ impl Dashboard {
         // 快捷键卡片
         self.draw_shortcuts_card(f, chunks[2]);
     }
+    /// 绘制 resource card。
 
     fn draw_resource_card(
         &self,
@@ -145,6 +147,7 @@ impl Dashboard {
         // 内存使用率
         resource_usage("MEM", mem.usage, chunks[1], f);
     }
+    /// 绘制 shortcuts card。
 
     fn draw_shortcuts_card(&self, f: &mut Frame, area: Rect) {
         use ratatui::widgets::Block;
@@ -166,6 +169,7 @@ impl Dashboard {
 
         f.render_widget(paragraph, inner);
     }
+    /// 绘制 cpu section。
 
     fn draw_cpu_section(&self, f: &mut Frame, area: Rect, info: &panel_core::CpuInfo) {
         let chunks = Layout::default()
@@ -203,6 +207,7 @@ impl Dashboard {
 
         f.render_widget(gauge, chunks[1]);
     }
+    /// 绘制 memory section。
 
     fn draw_memory_section(&self, f: &mut Frame, area: Rect, info: &panel_core::MemoryInfo) {
         let chunks = Layout::default()
@@ -242,6 +247,7 @@ impl Dashboard {
 
         f.render_widget(gauge, chunks[1]);
     }
+    /// 绘制 disk table。
 
     fn draw_disk_table(&self, f: &mut Frame, area: Rect, disks: &[panel_core::DiskInfo]) {
         let block = Block::default()
@@ -284,6 +290,7 @@ impl Dashboard {
 }
 
 impl Default for Dashboard {
+    /// 返回默认实例。
     fn default() -> Self {
         Self::new()
     }

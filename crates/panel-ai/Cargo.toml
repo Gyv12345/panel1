@@ -29,6 +29,8 @@ anyhow = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
+dirs = { workspace = true }
+toml = "0.8"
 
 [dev-dependencies]
 tokio-test = "0.4"

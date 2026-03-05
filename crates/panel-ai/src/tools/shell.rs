@@ -171,6 +171,7 @@ impl ShellTool {
 }
 
 impl Default for ShellTool {
+    /// 返回默认实例。
     fn default() -> Self {
         Self::new()
     }

@@ -21,6 +21,7 @@ pub struct RegistryConfig {
     /// 是否启用缓存
     pub enable_cache: bool,
 }
+/// 解析 cache root dir。
 
 fn resolve_cache_root_dir() -> PathBuf {
     if let Ok(cache_dir) = std::env::var("PANEL_CACHE_DIR") {
@@ -37,6 +38,7 @@ fn resolve_cache_root_dir() -> PathBuf {
 
     PathBuf::from(".panel1/cache")
 }
+/// 解析 registry base url。
 
 fn resolve_registry_base_url() -> String {
     if let Ok(base_url) = std::env::var("PANEL_REGISTRY_URL") {
@@ -48,6 +50,7 @@ fn resolve_registry_base_url() -> String {
 }
 
 impl Default for RegistryConfig {
+    /// 返回默认实例。
     fn default() -> Self {
         Self {
             base_url: resolve_registry_base_url(),
@@ -401,6 +404,7 @@ impl PackageRegistry {
 mod tests {
     use super::*;
 
+    /// 测试：验证 registry config default。
     #[test]
     fn test_registry_config_default() {
         let config = RegistryConfig::default();
@@ -408,6 +412,7 @@ mod tests {
         assert!(config.enable_cache);
     }
 
+    /// 测试：验证 find artifact。
     #[tokio::test]
     async fn test_find_artifact() {
         let registry = PackageRegistry::with_defaults().unwrap();

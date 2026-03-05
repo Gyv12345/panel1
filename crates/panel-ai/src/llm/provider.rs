@@ -75,6 +75,7 @@ pub struct LlmConfig {
 }
 
 impl Default for LlmConfig {
+    /// 返回默认实例。
     fn default() -> Self {
         Self {
             api_key: None,
